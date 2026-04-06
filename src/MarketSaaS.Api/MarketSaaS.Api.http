@@ -1,0 +1,53 @@
+@host = https://localhost:7011
+# Perfil https en launchSettings.json; si usás http: http://localhost:5037
+
+### Crear negocio
+POST {{host}}/api/negocios
+Content-Type: application/json
+
+{
+  "slug": "mi-tienda-demo",
+  "nombre": "Mi Tienda Demo",
+  "descripcionCorta": "Ejemplo Tesis",
+  "emailContacto": "hola@mitienda.com"
+}
+
+### Negocio por slug
+GET {{host}}/api/negocios/mi-tienda-demo
+
+### Registro SuperAdmin (sin negocioId)
+POST {{host}}/api/auth/registro
+Content-Type: application/json
+
+{
+  "email": "admin@plataforma.com",
+  "password": "ClaveSegura1",
+  "nombre": "Admin",
+  "apellido": "Plataforma",
+  "rol": "SuperAdmin"
+}
+
+### Registro Admin tienda (reemplazar NEGOCIO_ID)
+POST {{host}}/api/auth/registro
+Content-Type: application/json
+
+{
+  "email": "dueño@mitienda.com",
+  "password": "ClaveSegura1",
+  "nombre": "Dueño",
+  "rol": "AdminTienda",
+  "negocioId": "NEGOCIO_ID_AQUI"
+}
+
+### Login
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@plataforma.com",
+  "password": "ClaveSegura1"
+}
+
+### Perfil (pegar token)
+GET {{host}}/api/auth/me
+Authorization: Bearer TOKEN_AQUI
