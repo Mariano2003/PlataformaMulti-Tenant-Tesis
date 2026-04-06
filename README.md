@@ -5,10 +5,9 @@ Backend **.NET 8** + **MongoDB** + **JWT** para la plataforma multi-tenant del t
 ## Estructura
 
 ```
-TESIS/
+.
 ├── MarketSaaS.sln
 ├── src/MarketSaaS.Api/    # API REST
-├── INFORME/               # documentación / DER
 └── README.md
 ```
 
