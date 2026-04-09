@@ -41,13 +41,20 @@ dotnet run
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| POST | `/api/negocios` | Crear negocio (slug único en la plataforma) |
-| GET | `/api/negocios/{slug}` | Obtener negocio por slug |
-| POST | `/api/auth/registro` | Registro (`SuperAdmin` sin `negocioId`; otros roles con `negocioId`) |
+| POST | `/api/negocios` | Crear negocio — **JWT** rol `SuperAdmin`, slug único |
+| GET | `/api/negocios/{slug}` | Obtener negocio por slug (público) |
+| GET | `/api/negocios/{slug}/admin/contexto` | **JWT** `SuperAdmin` o `AdminTienda`; el `negocio_id` del token debe coincidir con el slug (excepto SuperAdmin) |
+| POST | `/api/auth/registro` | Registro: `SuperAdmin` solo si aún no hay ninguno en BD; `AdminTienda`/`Cliente` con `negocioId` |
 | POST | `/api/auth/login` | Login → JWT |
 | GET | `/api/auth/me` | Perfil (requiere `Authorization: Bearer …`) |
+| GET | `/api/negocios/{slug}/categorias` | Listar categorías activas (público) |
+| GET | `/api/negocios/{slug}/categorias/{id}` | Categoría activa por id (público) |
+| GET | `/api/negocios/{slug}/productos` | Listar productos activos; query `?categoriaId=` opcional (público) |
+| GET | `/api/negocios/{slug}/productos/{id}` | Producto activo por id (público) |
+| GET/POST/PUT/DELETE | `/api/negocios/{slug}/admin/categorias` | CRUD categorías — **JWT** + `[RequireMatchingNegocio]` |
+| GET/POST/PUT/DELETE | `/api/negocios/{slug}/admin/productos` | CRUD productos (precio, stock, `atributos` opcional) — **JWT** + tenant |
 
-Roles: `SuperAdmin`, `AdminTienda`, `Cliente`.
+Roles: `SuperAdmin`, `AdminTienda`, `Cliente`. Políticas en `Authorization/Policies.cs`; aislamiento por slug en `[RequireMatchingNegocio]`.
 
 ## Git + GitHub
 
@@ -68,6 +75,6 @@ git push -u origin main
 
 ## Próximos pasos sugeridos
 
-- Middleware de **resolución de tenant** por slug en ruta o header.
-- CRUD **productos / variantes / stock** con `negocioId` en filtros.
-- Políticas **SuperAdmin** vs **AdminTienda** en creación de negocios.
+- **Checkout / pedidos** y descuento transaccional de stock al confirmar pago (Mercado Pago + webhooks).
+- **Frontend Vue** (catálogo por slug, carrito Pinia, panel admin).
+- Invitación de **otros SuperAdmin** (endpoint protegido) si hace falta más de un administrador de plataforma.

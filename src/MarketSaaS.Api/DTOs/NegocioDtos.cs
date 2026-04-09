@@ -33,3 +33,12 @@ public class NegocioResponse
     public bool Activo { get; set; }
     public DateTime CreadoEn { get; set; }
 }
+
+/// <summary>Ejemplo de endpoint tenant-scoped: datos del negocio de la ruta tras validar JWT + slug.</summary>
+public class NegocioContextoAdminResponse
+{
+    public string NegocioId { get; set; } = null!;
+    public string Slug { get; set; } = null!;
+    public string Nombre { get; set; } = null!;
+    public bool Activo { get; set; }
+}

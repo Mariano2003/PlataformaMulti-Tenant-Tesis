@@ -1,4 +1,7 @@
+using MarketSaaS.Api.Authorization;
 using MarketSaaS.Api.DTOs;
+using MarketSaaS.Api.Infrastructure;
+using MarketSaaS.Api.Models;
 using MarketSaaS.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -27,11 +30,38 @@ public class NegociosController : ControllerBase
         return Ok(ToResponse(n));
     }
 
-    /// <summary>Alta de negocio (tenant). En producción restringir a SuperAdmin.</summary>
+    /// <summary>
+    /// Verifica JWT + que el <c>negocio_id</c> del token corresponda al <paramref name="slug"/> (SuperAdmin puede cualquier slug existente).
+    /// Plantilla para futuros <c>.../admin/...</c>.
+    /// </summary>
+    [HttpGet("{slug}/admin/contexto")]
+    [Authorize(Policy = Policies.SuperAdminOrAdminTienda)]
+    [RequireMatchingNegocio]
+    [ProducesResponseType(typeof(NegocioContextoAdminResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<NegocioContextoAdminResponse> ContextoAdmin()
+    {
+        if (!HttpContext.Items.TryGetValue(HttpContextItemKeys.NegocioActual, out var raw) || raw is not Negocio n)
+            return NotFound();
+
+        return Ok(new NegocioContextoAdminResponse
+        {
+            NegocioId = n.Id,
+            Slug = n.Slug,
+            Nombre = n.Nombre,
+            Activo = n.Activo,
+        });
+    }
+
+    /// <summary>Alta de negocio (tenant). Solo <see cref="Roles.SuperAdmin"/>.</summary>
     [HttpPost]
-    [AllowAnonymous]
+    [Authorize(Policy = Policies.SuperAdminOnly)]
     [ProducesResponseType(typeof(NegocioResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<NegocioResponse>> Crear([FromBody] CrearNegocioRequest dto, CancellationToken ct)
     {
         try

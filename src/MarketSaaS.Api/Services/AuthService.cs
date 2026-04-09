@@ -30,6 +30,10 @@ public sealed class AuthService : IAuthService
         {
             if (!string.IsNullOrEmpty(dto.NegocioId))
                 throw new ArgumentException("SuperAdmin no debe tener NegocioId.");
+            var yaHaySuper = await _usuarios.Find(u => u.Rol == Roles.SuperAdmin).AnyAsync(ct);
+            if (yaHaySuper)
+                throw new InvalidOperationException(
+                    "Ya existe un SuperAdmin. El registro público en este rol no está permitido.");
         }
         else
         {

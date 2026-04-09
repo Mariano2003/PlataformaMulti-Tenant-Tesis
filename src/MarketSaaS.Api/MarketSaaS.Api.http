@@ -1,21 +1,9 @@
 @host = https://localhost:7011
 # Perfil https en launchSettings.json; si usás http: http://localhost:5037
+@tokenSuper = TOKEN_SUPERADMIN_AQUI
+@tokenAdmin = TOKEN_ADMIN_TIENDA_AQUI
 
-### Crear negocio
-POST {{host}}/api/negocios
-Content-Type: application/json
-
-{
-  "slug": "mi-tienda-demo",
-  "nombre": "Mi Tienda Demo",
-  "descripcionCorta": "Ejemplo Tesis",
-  "emailContacto": "hola@mitienda.com"
-}
-
-### Negocio por slug
-GET {{host}}/api/negocios/mi-tienda-demo
-
-### Registro SuperAdmin (sin negocioId)
+### 1) Primer usuario: SuperAdmin (solo si aún no hay ninguno en la BD)
 POST {{host}}/api/auth/registro
 Content-Type: application/json
 
@@ -27,7 +15,35 @@ Content-Type: application/json
   "rol": "SuperAdmin"
 }
 
-### Registro Admin tienda (reemplazar NEGOCIO_ID)
+### 2) Login SuperAdmin → copiar token a @tokenSuper
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@plataforma.com",
+  "password": "ClaveSegura1"
+}
+
+### 3) Crear negocio (requiere JWT SuperAdmin)
+POST {{host}}/api/negocios
+Content-Type: application/json
+Authorization: Bearer {{tokenSuper}}
+
+{
+  "slug": "mi-tienda-demo",
+  "nombre": "Mi Tienda Demo",
+  "descripcionCorta": "Ejemplo Tesis",
+  "emailContacto": "hola@mitienda.com"
+}
+
+### Negocio por slug (público)
+GET {{host}}/api/negocios/mi-tienda-demo
+
+### Contexto admin: SuperAdmin o AdminTienda cuyo negocio_id coincida con el slug
+GET {{host}}/api/negocios/mi-tienda-demo/admin/contexto
+Authorization: Bearer {{tokenSuper}}
+
+### Registro Admin tienda (reemplazar NEGOCIO_ID del paso 3)
 POST {{host}}/api/auth/registro
 Content-Type: application/json
 
@@ -39,15 +55,53 @@ Content-Type: application/json
   "negocioId": "NEGOCIO_ID_AQUI"
 }
 
-### Login
+### Contexto admin con token de la tienda (pegar en @tokenAdmin)
+GET {{host}}/api/negocios/mi-tienda-demo/admin/contexto
+Authorization: Bearer {{tokenAdmin}}
+
+### Login admin tienda
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "admin@plataforma.com",
+  "email": "dueño@mitienda.com",
   "password": "ClaveSegura1"
 }
 
-### Perfil (pegar token)
+### Perfil (cualquier usuario autenticado)
 GET {{host}}/api/auth/me
 Authorization: Bearer TOKEN_AQUI
+
+### Categorías públicas
+GET {{host}}/api/negocios/mi-tienda-demo/categorias
+
+### Crear categoría (admin — reemplazar token)
+POST {{host}}/api/negocios/mi-tienda-demo/admin/categorias
+Content-Type: application/json
+Authorization: Bearer {{tokenAdmin}}
+
+{
+  "nombre": "Bebidas",
+  "orden": 1
+}
+
+### Listar categorías (admin, incluye inactivas)
+GET {{host}}/api/negocios/mi-tienda-demo/admin/categorias
+Authorization: Bearer {{tokenAdmin}}
+
+### Productos públicos (?categoriaId= opcional)
+GET {{host}}/api/negocios/mi-tienda-demo/productos
+
+### Crear producto (admin — opcional categoriaId)
+POST {{host}}/api/negocios/mi-tienda-demo/admin/productos
+Content-Type: application/json
+Authorization: Bearer {{tokenAdmin}}
+
+{
+  "nombre": "Gaseosa cola 500ml",
+  "descripcionCorta": "Sin stock mínimo en demo",
+  "precio": 350.50,
+  "stock": 100,
+  "categoriaId": null,
+  "atributos": { "volumenMl": "500" }
+}

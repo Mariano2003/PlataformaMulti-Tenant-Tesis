@@ -37,6 +37,19 @@ public sealed class MongoIndexInitializer : IHostedService
                 new CreateIndexOptions { Unique = true }),
             cancellationToken: cancellationToken);
 
+        var categorias = db.GetCollection<Categoria>(CollectionNames.Categorias);
+        await categorias.Indexes.CreateOneAsync(
+            new CreateIndexModel<Categoria>(
+                Builders<Categoria>.IndexKeys.Ascending(c => c.NegocioId).Ascending(c => c.Nombre),
+                new CreateIndexOptions { Unique = true }),
+            cancellationToken: cancellationToken);
+
+        var productos = db.GetCollection<Producto>(CollectionNames.Productos);
+        await productos.Indexes.CreateOneAsync(
+            new CreateIndexModel<Producto>(
+                Builders<Producto>.IndexKeys.Ascending(p => p.NegocioId).Ascending(p => p.CategoriaId)),
+            cancellationToken: cancellationToken);
+
         _log.LogInformation("Índices MongoDB verificados/creados.");
     }
 

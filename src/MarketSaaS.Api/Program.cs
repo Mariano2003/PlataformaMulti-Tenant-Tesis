@@ -1,5 +1,7 @@
 using System.Text;
+using MarketSaaS.Api.Authorization;
 using MarketSaaS.Api.Infrastructure;
+using MarketSaaS.Api.Models;
 using MarketSaaS.Api.Options;
 using MarketSaaS.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -23,7 +25,10 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
 
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddSingleton<INegocioService, NegocioService>();
+builder.Services.AddSingleton<ICategoriaService, CategoriaService>();
+builder.Services.AddSingleton<IProductoService, ProductoService>();
 builder.Services.AddSingleton<IAuthService, AuthService>();
+builder.Services.AddScoped<RequireMatchingNegocioFilter>();
 builder.Services.AddHostedService<MongoIndexInitializer>();
 
 var jwtOpt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
@@ -47,7 +52,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(o =>
+{
+    o.AddPolicy(Policies.SuperAdminOnly, p => p.RequireRole(Roles.SuperAdmin));
+    o.AddPolicy(Policies.AdminTiendaOnly, p => p.RequireRole(Roles.AdminTienda));
+    o.AddPolicy(Policies.ClienteOnly, p => p.RequireRole(Roles.Cliente));
+    o.AddPolicy(Policies.SuperAdminOrAdminTienda, p => p.RequireRole(Roles.SuperAdmin, Roles.AdminTienda));
+});
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
