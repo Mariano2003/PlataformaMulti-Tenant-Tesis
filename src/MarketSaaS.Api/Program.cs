@@ -13,6 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<MongoOptions>(builder.Configuration.GetSection(MongoOptions.SectionName));
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
+builder.Services.Configure<MercadoPagoOptions>(builder.Configuration.GetSection(MercadoPagoOptions.SectionName));
 
 var mongoOpt = builder.Configuration.GetSection(MongoOptions.SectionName).Get<MongoOptions>()
     ?? new MongoOptions();
@@ -27,6 +28,8 @@ builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddSingleton<INegocioService, NegocioService>();
 builder.Services.AddSingleton<ICategoriaService, CategoriaService>();
 builder.Services.AddSingleton<IProductoService, ProductoService>();
+builder.Services.AddSingleton<IPedidoService, PedidoService>();
+builder.Services.AddSingleton<IMercadoPagoPreferenciaService, MercadoPagoPreferenciaService>();
 builder.Services.AddSingleton<IAuthService, AuthService>();
 builder.Services.AddScoped<RequireMatchingNegocioFilter>();
 builder.Services.AddHostedService<MongoIndexInitializer>();
@@ -58,6 +61,14 @@ builder.Services.AddAuthorization(o =>
     o.AddPolicy(Policies.AdminTiendaOnly, p => p.RequireRole(Roles.AdminTienda));
     o.AddPolicy(Policies.ClienteOnly, p => p.RequireRole(Roles.Cliente));
     o.AddPolicy(Policies.SuperAdminOrAdminTienda, p => p.RequireRole(Roles.SuperAdmin, Roles.AdminTienda));
+});
+
+builder.Services.AddCors(o =>
+{
+    o.AddPolicy("SpaDev", p => p
+        .WithOrigins("http://localhost:5173", "https://localhost:5173")
+        .AllowAnyHeader()
+        .AllowAnyMethod());
 });
 
 builder.Services.AddControllers();
@@ -95,6 +106,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+if (app.Environment.IsDevelopment())
+    app.UseCors("SpaDev");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

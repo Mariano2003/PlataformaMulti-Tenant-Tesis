@@ -1,13 +1,14 @@
 # MarketSaaS — Tesis (T.U.P.)
 
-Backend **.NET 8** + **MongoDB** + **JWT** para la plataforma multi-tenant del trabajo final.
+Backend **.NET 8** + **MongoDB** + **JWT** y frontend **Vue 3 + Vite** para la plataforma multi-tenant del trabajo final.
 
 ## Estructura
 
 ```
 .
 ├── MarketSaaS.sln
-├── src/MarketSaaS.Api/    # API REST
+├── src/MarketSaaS.Api/       # API REST
+├── src/MarketSaaS.Web/       # SPA Vue 3 + TypeScript (Vite)
 └── README.md
 ```
 
@@ -15,6 +16,21 @@ Backend **.NET 8** + **MongoDB** + **JWT** para la plataforma multi-tenant del t
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download)
 - [MongoDB](https://www.mongodb.com/try/download/community) en ejecución (por defecto `mongodb://localhost:27017`)
+- [Node.js](https://nodejs.org/) LTS (para el frontend)
+
+## MongoDB (local)
+
+1. **Instalá** MongoDB Community y dejá el servicio **MongoDB** iniciado (Servicios de Windows), o ejecutá `mongod` manualmente.
+2. **No hace falta** crear la base “a mano”: la API usa el nombre `DatabaseName` de `appsettings.json` (por defecto `marketsaas`). Al **primer arranque** se crean índices; al **primer insert** (usuario, negocio, pedido, etc.) aparecen las **colecciones** en la base.
+3. Opcional: [MongoDB Compass](https://www.mongodb.com/products/compass) → conectar a `mongodb://localhost:27017` → ver la base `marketsaas` después de usar la API.
+4. Si la API **no arranca** o falla al inicio con error de conexión, Mongo no está escuchando o la **connection string** no coincide con tu instalación.
+
+## Convenciones de código (para quien mantenga el repo)
+
+- **Dominio en español** en nombres públicos de la API (rutas, mensajes, propiedades JSON donde aplica): `Negocio`, `Pedido`, `CrearPedidoRequest`, etc.
+- **Parámetros de entrada** a controladores: preferimos `solicitud` para el cuerpo (`[FromBody]`) y nombres completos en variables locales (`negocio`, `producto`, `pedido`) en lugar de `n`, `p`, `dto`.
+- **Tenant en admin:** el filtro `[RequireMatchingNegocio]` guarda el negocio en `HttpContext.Items`; leelo con `HttpContext.TryGetNegocioActual(out var negocio)` (`HttpContextNegocioExtensions`).
+- **`CancellationToken`:** abreviatura `ct` en firmas (convención habitual en .NET).
 
 ## Configuración
 
@@ -37,6 +53,16 @@ dotnet run
 
 - Swagger (desarrollo): `https://localhost:{puerto}/swagger`
 
+### Frontend (Vue)
+
+```bash
+cd src/MarketSaaS.Web
+npm install
+npm run dev
+```
+
+Con la API en **`http://localhost:5037`**, Vite proxifica `/api` hacia el backend. Detalle: `src/MarketSaaS.Web/README.md`.
+
 ## Endpoints iniciales
 
 | Método | Ruta | Descripción |
@@ -53,8 +79,14 @@ dotnet run
 | GET | `/api/negocios/{slug}/productos/{id}` | Producto activo por id (público) |
 | GET/POST/PUT/DELETE | `/api/negocios/{slug}/admin/categorias` | CRUD categorías — **JWT** + `[RequireMatchingNegocio]` |
 | GET/POST/PUT/DELETE | `/api/negocios/{slug}/admin/productos` | CRUD productos (precio, stock, `atributos` opcional) — **JWT** + tenant |
+| POST | `/api/negocios/{slug}/pedidos` | Crear pedido **PendientePago**: valida stock y totales; el stock se descuenta al aprobar el pago (webhook MP) |
+| POST | `/api/negocios/{slug}/pedidos/{pedidoId}/mercadopago/preferencia` | Preferencia Checkout Pro (público) |
+| GET | `/api/negocios/{slug}/admin/pedidos` | Listar pedidos del negocio (`?limite=`, máx. 500) — **JWT** + tenant |
+| GET | `/api/negocios/{slug}/admin/pedidos/{id}` | Detalle de pedido — **JWT** + tenant |
 
 Roles: `SuperAdmin`, `AdminTienda`, `Cliente`. Políticas en `Authorization/Policies.cs`; aislamiento por slug en `[RequireMatchingNegocio]`.
+
+**Pedidos y pago:** flujo **PendientePago** → preferencia Mercado Pago → **webhook** aprueba → descuento de stock atómico. Estado legacy **Confirmado** puede existir en datos viejos.
 
 ## Git + GitHub
 
@@ -75,6 +107,6 @@ git push -u origin main
 
 ## Próximos pasos sugeridos
 
-- **Checkout / pedidos** y descuento transaccional de stock al confirmar pago (Mercado Pago + webhooks).
-- **Frontend Vue** (catálogo por slug, carrito Pinia, panel admin).
+- **MarketSaaS.Web**: router por `slug`, catálogo, carrito (Pinia), checkout MP, panel admin con JWT.
+- **SignalR** (chat cliente–tienda) y **dashboard** de métricas.
 - Invitación de **otros SuperAdmin** (endpoint protegido) si hace falta más de un administrador de plataforma.
