@@ -1,69 +1,111 @@
 <script setup lang="ts">
-import { apiUrl } from './config/api'
+import { computed } from 'vue'
+import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { useAuthStore } from './stores/auth'
 
-/** Ejemplo opcional: probá con un slug real de tu MongoDB. */
-const slugDemo = 'demo'
-
-async function probarApi() {
-  const res = await fetch(apiUrl(`/api/negocios/${slugDemo}`))
-  if (res.ok) {
-    const data = await res.json()
-    alert(`Negocio: ${data.nombre ?? data.slug ?? JSON.stringify(data)}`)
-  } else if (res.status === 404) {
-    alert(`No hay negocio con slug "${slugDemo}". Cambiá slugDemo en App.vue o creá el negocio en la API.`)
-  } else {
-    alert(`Error ${res.status}: ¿La API está en http://localhost:5037?`)
+const route = useRoute()
+const auth = useAuthStore()
+const esAdmin = computed(() => route.path.startsWith('/admin'))
+const esLoginPortal = computed(() => route.path === '/acceder')
+const enlacesNav = computed(() => {
+  if (!auth.token || !auth.usuario) {
+    return [{ label: 'Acceso', to: { name: 'portal-login' as const } }]
   }
-}
+  const rol = auth.usuario.rol
+  if (rol === 'SuperAdmin') {
+    return [
+      { label: 'Plataforma', to: { name: 'superadmin-plataforma' as const } },
+      { label: 'Tiendas', to: { name: 'tiendas' as const } },
+    ]
+  }
+  if (rol === 'Cliente') {
+    return [{ label: 'Mis tiendas', to: { name: 'tiendas' as const } }]
+  }
+  return []
+})
+const mostrarNavPortal = computed(
+  () => !esAdmin.value && !esLoginPortal.value && enlacesNav.value.length > 0,
+)
 </script>
 
 <template>
-  <main class="wrap">
-    <h1>MarketSaaS</h1>
-    <p class="lead">
-      Frontend Vue 3 + Vite + TypeScript. En desarrollo, las llamadas a <code>/api</code> se proxifican al backend
-      (.NET en el puerto 5037).
-    </p>
-    <p class="hint">Próximo paso: router por <code>slug</code>, Pinia (carrito) y pantallas tienda / admin.</p>
-    <button type="button" class="btn" @click="probarApi">Probar GET negocio (demo)</button>
-  </main>
+  <div class="shell" :class="{ 'shell--admin': esAdmin }">
+    <header class="bar">
+      <RouterLink to="/" class="brand">MarketSaaS</RouterLink>
+      <span v-if="esAdmin" class="bar-badge">Panel tienda</span>
+      <span v-else-if="auth.usuario?.rol === 'SuperAdmin'" class="bar-badge bar-badge--super">SuperAdmin</span>
+      <nav v-if="mostrarNavPortal" class="bar-nav">
+        <RouterLink
+          v-for="item in enlacesNav"
+          :key="item.label"
+          class="bar-link"
+          :to="item.to"
+        >
+          {{ item.label }}
+        </RouterLink>
+      </nav>
+    </header>
+    <RouterView />
+  </div>
 </template>
 
 <style scoped>
-.wrap {
-  max-width: 40rem;
-  margin: 2rem auto;
-  padding: 0 1rem;
-  font-family: system-ui, sans-serif;
+.shell {
+  text-align: left;
+  min-height: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
-h1 {
-  font-size: 1.75rem;
+.bar {
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
-.lead {
-  color: #374151;
-  line-height: 1.5;
+.bar-nav {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  align-items: center;
 }
-.hint {
+.bar-link {
   font-size: 0.9rem;
-  color: #6b7280;
+  font-weight: 500;
+  color: var(--accent, #2563eb);
+  text-decoration: none;
 }
-code {
-  font-size: 0.85em;
-  background: #f3f4f6;
-  padding: 0.1em 0.35em;
-  border-radius: 4px;
+.bar-link:hover {
+  text-decoration: underline;
 }
-.btn {
-  margin-top: 1rem;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  border: 1px solid #2563eb;
-  background: #2563eb;
-  color: #fff;
-  font-size: 1rem;
-  cursor: pointer;
+.shell--admin .bar {
+  background: var(--code-bg);
 }
-.btn:hover {
-  background: #1d4ed8;
+.brand {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--text-h, #111827);
+  text-decoration: none;
+}
+.brand:hover {
+  color: var(--accent, #2563eb);
+}
+.bar-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+}
+.bar-badge--super {
+  background: rgba(124, 58, 237, 0.12);
+  color: #6d28d9;
+  border-color: rgba(124, 58, 237, 0.35);
 }
 </style>

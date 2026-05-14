@@ -1,5 +1,9 @@
 @host = https://localhost:7011
 # Perfil https en launchSettings.json; si usás http: http://localhost:5037
+#
+# En Development, la API puede sembrar usuarios de prueba (SuperAdmin, AdminTienda, Cliente)
+# al iniciar: appsettings.Development.json → "DevSeed": { "Enabled": true }.
+# Contraseñas por defecto en appsettings.json → sección DevSeed (ej. ClaveSegura1).
 @tokenSuper = TOKEN_SUPERADMIN_AQUI
 @tokenAdmin = TOKEN_ADMIN_TIENDA_AQUI
 
@@ -24,6 +28,33 @@ Content-Type: application/json
   "password": "ClaveSegura1"
 }
 
+### Recuperar contraseña (siempre 200; correo solo si usuario existe y Email:Enabled + SMTP)
+POST {{host}}/api/auth/recuperar-clave
+Content-Type: application/json
+
+{
+  "email": "admin@plataforma.com"
+}
+
+### Restablecer contraseña (token del mail → campo token hex)
+POST {{host}}/api/auth/restablecer-clave
+Content-Type: application/json
+
+{
+  "token": "PEGAR_TOKEN_DEL_MAIL",
+  "nuevaPassword": "ClaveSegura2"
+}
+
+### SuperAdmin: nueva contraseña para un usuario (sin mail; requiere Bearer SuperAdmin)
+POST {{host}}/api/auth/admin/restablecer-clave-usuario
+Content-Type: application/json
+Authorization: Bearer {{tokenSuper}}
+
+{
+  "email": "dueño@mitienda.com",
+  "nuevaPassword": "ClaveSegura2"
+}
+
 ### 3) Crear negocio (requiere JWT SuperAdmin)
 POST {{host}}/api/negocios
 Content-Type: application/json
@@ -36,8 +67,36 @@ Authorization: Bearer {{tokenSuper}}
   "emailContacto": "hola@mitienda.com"
 }
 
+### Crear negocio + usuario dueño (AdminTienda) en un solo POST — opcional
+POST {{host}}/api/negocios
+Content-Type: application/json
+Authorization: Bearer {{tokenSuper}}
+
+{
+  "slug": "tienda-con-dueno",
+  "nombre": "Tienda con dueño",
+  "tiendaAdminEmail": "dueno-nuevo@ejemplo.com",
+  "tiendaAdminPassword": "ClaveSegura1",
+  "tiendaAdminNombre": "Patricia",
+  "tiendaAdminApellido": "Lopez"
+}
+
+### Listado de negocios activos (público — selector de tienda en el front)
+GET {{host}}/api/negocios
+
 ### Negocio por slug (público)
 GET {{host}}/api/negocios/mi-tienda-demo
+
+### Registro Cliente sin negocio (comprador multi-tienda; negocioId opcional)
+POST {{host}}/api/auth/registro
+Content-Type: application/json
+
+{
+  "email": "cliente@ejemplo.com",
+  "password": "ClaveSegura1",
+  "nombre": "Ana",
+  "rol": "Cliente"
+}
 
 ### Contexto admin: SuperAdmin o AdminTienda cuyo negocio_id coincida con el slug
 GET {{host}}/api/negocios/mi-tienda-demo/admin/contexto
@@ -58,6 +117,16 @@ Content-Type: application/json
 ### Contexto admin con token de la tienda (pegar en @tokenAdmin)
 GET {{host}}/api/negocios/mi-tienda-demo/admin/contexto
 Authorization: Bearer {{tokenAdmin}}
+
+### Mercado Pago por tienda: guardar Access Token del vendedor (opcional WebhookSecret). Omitir props no cambia BD.
+PUT {{host}}/api/negocios/mi-tienda-demo/admin/mercadopago
+Content-Type: application/json
+Authorization: Bearer {{tokenAdmin}}
+
+{
+  "accessToken": "APP_USR_TOKEN_DE_LA_TIENDA",
+  "webhookSecret": ""
+}
 
 ### Login admin tienda
 POST {{host}}/api/auth/login
@@ -105,3 +174,37 @@ Authorization: Bearer {{tokenAdmin}}
   "categoriaId": null,
   "atributos": { "volumenMl": "500" }
 }
+
+### Crear pedido (público — PendientePago; reemplazar PRODUCTO_ID)
+POST {{host}}/api/negocios/mi-tienda-demo/pedidos
+Content-Type: application/json
+
+{
+  "lineas": [
+    { "productoId": "PRODUCTO_ID", "cantidad": 2 }
+  ],
+  "clienteNombre": "Cliente Demo",
+  "clienteEmail": "cliente@ejemplo.com",
+  "clienteTelefono": "3544000000"
+}
+
+### Mercado Pago: preferencia Checkout Pro (requiere MercadoPago:AccessToken y PublicApiBaseUrl en appsettings / user-secrets; PEDIDO_ID del paso anterior)
+POST {{host}}/api/negocios/mi-tienda-demo/pedidos/PEDIDO_ID/mercadopago/preferencia
+
+### Simular IPN (solo con AccessToken; reemplazar ID_PAGO_MP por un id real de sandbox)
+# Si MercadoPago:WebhookSecret tiene valor, hay que enviar x-signature y x-request-id válidos (mejor probar con "Simular" desde el panel MP).
+POST {{host}}/api/webhooks/mercadopago?topic=payment&id=ID_PAGO_MP
+
+### Simular webhook JSON (formato actual MP)
+POST {{host}}/api/webhooks/mercadopago
+Content-Type: application/json
+
+{
+  "type": "payment",
+  "action": "payment.updated",
+  "data": { "id": "ID_PAGO_MP" }
+}
+
+### Listar pedidos (admin)
+GET {{host}}/api/negocios/mi-tienda-demo/admin/pedidos?limite=50
+Authorization: Bearer {{tokenAdmin}}

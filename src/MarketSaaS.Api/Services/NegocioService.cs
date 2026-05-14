@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using MarketSaaS.Api.DTOs;
 using MarketSaaS.Api.Infrastructure;
@@ -16,10 +17,23 @@ public sealed class NegocioService : INegocioService
     public NegocioService(IMongoDatabase db) =>
         _negocios = db.GetCollection<Negocio>(CollectionNames.Negocios);
 
+    public async Task<Negocio?> ObtenerPorIdAsync(string id, CancellationToken ct = default)
+    {
+        return await _negocios.Find(n => n.Id == id).FirstOrDefaultAsync(ct);
+    }
+
     public async Task<Negocio?> ObtenerPorSlugAsync(string slug, CancellationToken ct = default)
     {
         var s = NormalizarSlug(slug);
         return await _negocios.Find(n => n.Slug == s).FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<Negocio>> ListarActivosOrdenadosAsync(CancellationToken ct = default)
+    {
+        var lista = await _negocios.Find(n => n.Activo)
+            .SortBy(n => n.Nombre)
+            .ToListAsync(ct);
+        return lista;
     }
 
     public async Task<Negocio> CrearAsync(CrearNegocioRequest dto, CancellationToken ct = default)
@@ -47,6 +61,33 @@ public sealed class NegocioService : INegocioService
 
         await _negocios.InsertOneAsync(negocio, cancellationToken: ct);
         return negocio;
+    }
+
+    public Task EliminarPorIdAsync(string id, CancellationToken ct = default) =>
+        _negocios.DeleteOneAsync(n => n.Id == id, ct);
+
+    public async Task ActualizarMercadoPagoAsync(string negocioId, ActualizarMercadoPagoNegocioRequest dto, CancellationToken ct = default)
+    {
+        var updates = new List<UpdateDefinition<Negocio>>();
+        if (dto.AccessToken is not null)
+        {
+            var tok = string.IsNullOrWhiteSpace(dto.AccessToken) ? null : dto.AccessToken.Trim();
+            updates.Add(Builders<Negocio>.Update.Set(n => n.MercadoPagoAccessToken, tok));
+        }
+
+        if (dto.WebhookSecret is not null)
+        {
+            var sec = string.IsNullOrWhiteSpace(dto.WebhookSecret) ? null : dto.WebhookSecret.Trim();
+            updates.Add(Builders<Negocio>.Update.Set(n => n.MercadoPagoWebhookSecret, sec));
+        }
+
+        if (updates.Count == 0)
+            return;
+
+        await _negocios.UpdateOneAsync(
+            n => n.Id == negocioId,
+            Builders<Negocio>.Update.Combine(updates),
+            cancellationToken: ct);
     }
 
     private static string NormalizarSlug(string slug) => slug.Trim().ToLowerInvariant();

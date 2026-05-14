@@ -29,8 +29,8 @@ public class CategoriasPublicasController : ControllerBase
         if (negocio is null)
             return NotFound();
 
-        var list = await _categorias.ListarPorNegocioAsync(negocio.Id, soloActivos: true, ct);
-        return Ok(list.Select(Map).ToList());
+        var categorias = await _categorias.ListarPorNegocioAsync(negocio.Id, soloActivos: true, ct);
+        return Ok(categorias.Select(Map).ToList());
     }
 
     [HttpGet("{id}")]
@@ -43,20 +43,20 @@ public class CategoriasPublicasController : ControllerBase
         if (negocio is null)
             return NotFound();
 
-        var c = await _categorias.ObtenerPorIdYNegocioAsync(id, negocio.Id, ct);
-        if (c is null || !c.Activo)
+        var categoria = await _categorias.ObtenerPorIdYNegocioAsync(id, negocio.Id, ct);
+        if (categoria is null || !categoria.Activo)
             return NotFound();
 
-        return Ok(Map(c));
+        return Ok(Map(categoria));
     }
 
-    private static CategoriaResponse Map(Categoria c) => new()
+    private static CategoriaResponse Map(Categoria categoria) => new()
     {
-        Id = c.Id,
-        NegocioId = c.NegocioId,
-        Nombre = c.Nombre,
-        Orden = c.Orden,
-        Activo = c.Activo,
-        CreadoEn = c.CreadoEn,
+        Id = categoria.Id,
+        NegocioId = categoria.NegocioId,
+        Nombre = categoria.Nombre,
+        Orden = categoria.Orden,
+        Activo = categoria.Activo,
+        CreadoEn = categoria.CreadoEn,
     };
 }

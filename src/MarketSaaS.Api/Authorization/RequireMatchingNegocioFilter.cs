@@ -51,20 +51,20 @@ public sealed class RequireMatchingNegocioFilter : IAsyncAuthorizationFilter
         bool requireMatch,
         string? negocioIdClaim = null)
     {
-        if (context.RouteData.Values.TryGetValue(_slugRouteKey, out var raw) is not true || raw is null)
+        if (context.RouteData.Values.TryGetValue(_slugRouteKey, out var valorSegmentoRuta) is not true || valorSegmentoRuta is null)
         {
             context.Result = new BadRequestObjectResult(new { error = $"Falta el parámetro de ruta '{_slugRouteKey}'." });
             return;
         }
 
-        var slug = raw.ToString();
-        if (string.IsNullOrWhiteSpace(slug))
+        var slugNegocio = valorSegmentoRuta.ToString();
+        if (string.IsNullOrWhiteSpace(slugNegocio))
         {
             context.Result = new BadRequestObjectResult(new { error = "El slug del negocio es inválido." });
             return;
         }
 
-        var negocio = await _negocios.ObtenerPorSlugAsync(slug, context.HttpContext.RequestAborted);
+        var negocio = await _negocios.ObtenerPorSlugAsync(slugNegocio, context.HttpContext.RequestAborted);
         if (negocio is null)
         {
             context.Result = new NotFoundResult();

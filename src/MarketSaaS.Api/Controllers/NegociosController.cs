@@ -1,3 +1,4 @@
+using System.Net.Mail;
 using MarketSaaS.Api.Authorization;
 using MarketSaaS.Api.DTOs;
 using MarketSaaS.Api.Infrastructure;
@@ -13,8 +14,23 @@ namespace MarketSaaS.Api.Controllers;
 public class NegociosController : ControllerBase
 {
     private readonly INegocioService _negocios;
+    private readonly IAuthService _auth;
 
-    public NegociosController(INegocioService negocios) => _negocios = negocios;
+    public NegociosController(INegocioService negocios, IAuthService auth)
+    {
+        _negocios = negocios;
+        _auth = auth;
+    }
+
+    /// <summary>Listado público de negocios activos (selector de tienda).</summary>
+    [HttpGet]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(IReadOnlyList<NegocioResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<NegocioResponse>>> ListarActivos(CancellationToken ct)
+    {
+        var lista = await _negocios.ListarActivosOrdenadosAsync(ct);
+        return Ok(lista.Select(ToResponse).ToList());
+    }
 
     /// <summary>Obtiene un negocio por su slug (URL pública).</summary>
     [HttpGet("{slug}")]
@@ -23,11 +39,11 @@ public class NegociosController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<NegocioResponse>> PorSlug(string slug, CancellationToken ct)
     {
-        var n = await _negocios.ObtenerPorSlugAsync(slug, ct);
-        if (n is null)
+        var negocio = await _negocios.ObtenerPorSlugAsync(slug, ct);
+        if (negocio is null)
             return NotFound();
 
-        return Ok(ToResponse(n));
+        return Ok(ToResponse(negocio));
     }
 
     /// <summary>
@@ -43,31 +59,59 @@ public class NegociosController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<NegocioContextoAdminResponse> ContextoAdmin()
     {
-        if (!HttpContext.Items.TryGetValue(HttpContextItemKeys.NegocioActual, out var raw) || raw is not Negocio n)
+        if (!HttpContext.TryGetNegocioActual(out var negocio))
             return NotFound();
 
         return Ok(new NegocioContextoAdminResponse
         {
-            NegocioId = n.Id,
-            Slug = n.Slug,
-            Nombre = n.Nombre,
-            Activo = n.Activo,
+            NegocioId = negocio.Id,
+            Slug = negocio.Slug,
+            Nombre = negocio.Nombre,
+            Activo = negocio.Activo,
+            MercadoPagoTiendaConfigurado = !string.IsNullOrWhiteSpace(negocio.MercadoPagoAccessToken),
         });
     }
 
-    /// <summary>Alta de negocio (tenant). Solo <see cref="Roles.SuperAdmin"/>.</summary>
+    /// <summary>
+    /// Alta de negocio (tenant). Solo <see cref="Roles.SuperAdmin"/>.
+    /// Opcionalmente crea el usuario <see cref="Roles.AdminTienda"/> inicial (<c>TiendaAdminEmail</c> + contraseña + nombre).
+    /// </summary>
     [HttpPost]
     [Authorize(Policy = Policies.SuperAdminOnly)]
     [ProducesResponseType(typeof(NegocioResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<ActionResult<NegocioResponse>> Crear([FromBody] CrearNegocioRequest dto, CancellationToken ct)
+    public async Task<ActionResult<NegocioResponse>> Crear([FromBody] CrearNegocioRequest solicitud, CancellationToken ct)
     {
+        var emailAdmin = solicitud.TiendaAdminEmail?.Trim();
+        var quiereDueño = !string.IsNullOrWhiteSpace(emailAdmin);
+        if (quiereDueño)
+        {
+            try
+            {
+                _ = new MailAddress(emailAdmin!);
+            }
+            catch (FormatException)
+            {
+                return BadRequest(new { error = "Email del dueño no válido." });
+            }
+
+            if (string.IsNullOrWhiteSpace(solicitud.TiendaAdminPassword)
+                || solicitud.TiendaAdminPassword.Length < 8)
+                return BadRequest(new
+                {
+                    error = "Contraseña del dueño: mínimo 8 caracteres.",
+                });
+
+            if (string.IsNullOrWhiteSpace(solicitud.TiendaAdminNombre))
+                return BadRequest(new { error = "Nombre del dueño es obligatorio si indicás su email." });
+        }
+
+        Models.Negocio negocioCreado;
         try
         {
-            var n = await _negocios.CrearAsync(dto, ct);
-            return CreatedAtAction(nameof(PorSlug), new { slug = n.Slug }, ToResponse(n));
+            negocioCreado = await _negocios.CrearAsync(solicitud, ct);
         }
         catch (ArgumentException ex)
         {
@@ -77,16 +121,50 @@ public class NegociosController : ControllerBase
         {
             return Conflict(new { error = ex.Message });
         }
+
+        var respuesta = ToResponse(negocioCreado);
+
+        if (!quiereDueño)
+            return CreatedAtAction(nameof(PorSlug), new { slug = negocioCreado.Slug }, respuesta);
+
+        try
+        {
+            await _auth.RegistrarAsync(
+                new RegistroRequest
+                {
+                    Email = emailAdmin!.ToLowerInvariant(),
+                    Password = solicitud.TiendaAdminPassword!,
+                    Nombre = solicitud.TiendaAdminNombre!.Trim(),
+                    Apellido = solicitud.TiendaAdminApellido?.Trim(),
+                    Rol = Roles.AdminTienda,
+                    NegocioId = negocioCreado.Id,
+                },
+                ct);
+        }
+        catch (ArgumentException ex)
+        {
+            await _negocios.EliminarPorIdAsync(negocioCreado.Id, ct);
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            await _negocios.EliminarPorIdAsync(negocioCreado.Id, ct);
+            return Conflict(new { error = ex.Message });
+        }
+
+        respuesta.AdminTiendaCreado = true;
+        respuesta.AdminTiendaEmail = emailAdmin!.ToLowerInvariant();
+        return CreatedAtAction(nameof(PorSlug), new { slug = negocioCreado.Slug }, respuesta);
     }
 
-    private static NegocioResponse ToResponse(Models.Negocio n) => new()
+    private static NegocioResponse ToResponse(Models.Negocio negocio) => new()
     {
-        Id = n.Id,
-        Slug = n.Slug,
-        Nombre = n.Nombre,
-        DescripcionCorta = n.DescripcionCorta,
-        LogoUrl = n.LogoUrl,
-        Activo = n.Activo,
-        CreadoEn = n.CreadoEn,
+        Id = negocio.Id,
+        Slug = negocio.Slug,
+        Nombre = negocio.Nombre,
+        DescripcionCorta = negocio.DescripcionCorta,
+        LogoUrl = negocio.LogoUrl,
+        Activo = negocio.Activo,
+        CreadoEn = negocio.CreadoEn,
     };
 }

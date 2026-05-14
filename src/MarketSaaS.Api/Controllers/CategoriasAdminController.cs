@@ -25,11 +25,11 @@ public class CategoriasAdminController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<IReadOnlyList<CategoriaResponse>>> Listar(CancellationToken ct)
     {
-        if (!TryNegocio(out var negocio))
+        if (!HttpContext.TryGetNegocioActual(out var negocio))
             return NotFound();
 
-        var list = await _categorias.ListarPorNegocioAsync(negocio.Id, soloActivos: false, ct);
-        return Ok(list.Select(Map).ToList());
+        var categorias = await _categorias.ListarPorNegocioAsync(negocio.Id, soloActivos: false, ct);
+        return Ok(categorias.Select(Map).ToList());
     }
 
     [HttpPost]
@@ -38,15 +38,15 @@ public class CategoriasAdminController : ControllerBase
     [ProducesResponseType(typeof(CategoriaResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<CategoriaResponse>> Crear([FromBody] CrearCategoriaRequest dto, CancellationToken ct)
+    public async Task<ActionResult<CategoriaResponse>> Crear([FromBody] CrearCategoriaRequest solicitud, CancellationToken ct)
     {
-        if (!TryNegocio(out var negocio))
+        if (!HttpContext.TryGetNegocioActual(out var negocio))
             return NotFound();
 
         try
         {
-            var c = await _categorias.CrearAsync(negocio.Id, dto, ct);
-            return CreatedAtAction(nameof(PorId), new { slug = negocio.Slug, id = c.Id }, Map(c));
+            var categoriaCreada = await _categorias.CrearAsync(negocio.Id, solicitud, ct);
+            return CreatedAtAction(nameof(PorId), new { slug = negocio.Slug, id = categoriaCreada.Id }, Map(categoriaCreada));
         }
         catch (ArgumentException ex)
         {
@@ -65,14 +65,14 @@ public class CategoriasAdminController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CategoriaResponse>> PorId(string id, CancellationToken ct)
     {
-        if (!TryNegocio(out var negocio))
+        if (!HttpContext.TryGetNegocioActual(out var negocio))
             return NotFound();
 
-        var c = await _categorias.ObtenerPorIdYNegocioAsync(id, negocio.Id, ct);
-        if (c is null)
+        var categoria = await _categorias.ObtenerPorIdYNegocioAsync(id, negocio.Id, ct);
+        if (categoria is null)
             return NotFound();
 
-        return Ok(Map(c));
+        return Ok(Map(categoria));
     }
 
     [HttpPut("{id}")]
@@ -82,17 +82,17 @@ public class CategoriasAdminController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<CategoriaResponse>> Actualizar(string id, [FromBody] ActualizarCategoriaRequest dto, CancellationToken ct)
+    public async Task<ActionResult<CategoriaResponse>> Actualizar(string id, [FromBody] ActualizarCategoriaRequest solicitud, CancellationToken ct)
     {
-        if (!TryNegocio(out var negocio))
+        if (!HttpContext.TryGetNegocioActual(out var negocio))
             return NotFound();
 
         try
         {
-            var c = await _categorias.ActualizarAsync(negocio.Id, id, dto, ct);
-            if (c is null)
+            var categoriaActualizada = await _categorias.ActualizarAsync(negocio.Id, id, solicitud, ct);
+            if (categoriaActualizada is null)
                 return NotFound();
-            return Ok(Map(c));
+            return Ok(Map(categoriaActualizada));
         }
         catch (ArgumentException ex)
         {
@@ -112,13 +112,13 @@ public class CategoriasAdminController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Eliminar(string id, CancellationToken ct)
     {
-        if (!TryNegocio(out var negocio))
+        if (!HttpContext.TryGetNegocioActual(out var negocio))
             return NotFound();
 
         try
         {
-            var ok = await _categorias.EliminarAsync(negocio.Id, id, ct);
-            if (!ok)
+            var eliminado = await _categorias.EliminarAsync(negocio.Id, id, ct);
+            if (!eliminado)
                 return NotFound();
             return NoContent();
         }
@@ -128,25 +128,13 @@ public class CategoriasAdminController : ControllerBase
         }
     }
 
-    private bool TryNegocio(out Negocio negocio)
+    private static CategoriaResponse Map(Categoria categoria) => new()
     {
-        if (HttpContext.Items.TryGetValue(HttpContextItemKeys.NegocioActual, out var raw) && raw is Negocio n)
-        {
-            negocio = n;
-            return true;
-        }
-
-        negocio = null!;
-        return false;
-    }
-
-    private static CategoriaResponse Map(Categoria c) => new()
-    {
-        Id = c.Id,
-        NegocioId = c.NegocioId,
-        Nombre = c.Nombre,
-        Orden = c.Orden,
-        Activo = c.Activo,
-        CreadoEn = c.CreadoEn,
+        Id = categoria.Id,
+        NegocioId = categoria.NegocioId,
+        Nombre = categoria.Nombre,
+        Orden = categoria.Orden,
+        Activo = categoria.Activo,
+        CreadoEn = categoria.CreadoEn,
     };
 }

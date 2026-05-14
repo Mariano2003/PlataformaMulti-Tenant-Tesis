@@ -32,8 +32,8 @@ public class ProductosPublicosController : ControllerBase
         if (negocio is null)
             return NotFound();
 
-        var list = await _productos.ListarPorNegocioAsync(negocio.Id, soloActivos: true, categoriaId, ct);
-        return Ok(list.Select(Map).ToList());
+        var productos = await _productos.ListarPorNegocioAsync(negocio.Id, soloActivos: true, categoriaId, ct);
+        return Ok(productos.Select(Map).ToList());
     }
 
     [HttpGet("{id}")]
@@ -46,24 +46,25 @@ public class ProductosPublicosController : ControllerBase
         if (negocio is null)
             return NotFound();
 
-        var p = await _productos.ObtenerPorIdYNegocioAsync(id, negocio.Id, soloActivos: true, ct);
-        if (p is null)
+        var producto = await _productos.ObtenerPorIdYNegocioAsync(id, negocio.Id, soloActivos: true, ct);
+        if (producto is null)
             return NotFound();
 
-        return Ok(Map(p));
+        return Ok(Map(producto));
     }
 
-    private static ProductoResponse Map(Producto p) => new()
+    private static ProductoResponse Map(Producto producto) => new()
     {
-        Id = p.Id,
-        NegocioId = p.NegocioId,
-        CategoriaId = p.CategoriaId,
-        Nombre = p.Nombre,
-        DescripcionCorta = p.DescripcionCorta,
-        Precio = p.Precio,
-        Stock = p.Stock,
-        Atributos = p.Atributos,
-        Activo = p.Activo,
-        CreadoEn = p.CreadoEn,
+        Id = producto.Id,
+        NegocioId = producto.NegocioId,
+        CategoriaId = producto.CategoriaId,
+        Nombre = producto.Nombre,
+        DescripcionCorta = producto.DescripcionCorta,
+        ImagenUrl = producto.ImagenUrl,
+        Precio = producto.Precio,
+        Stock = producto.Stock,
+        Atributos = producto.Atributos,
+        Activo = producto.Activo,
+        CreadoEn = producto.CreadoEn,
     };
 }

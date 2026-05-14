@@ -168,6 +168,31 @@ code {
   box-sizing: border-box;
 }
 
+/* Tienda pública / home: columna centrada. El panel admin usa ancho completo (ver App.vue .shell--admin). */
+#app:has(.shell--admin) {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  border-inline: none;
+  text-align: left;
+}
+
+#app:has(.shell--admin) > .shell h1 {
+  font-size: 1.6rem;
+  letter-spacing: -0.03em;
+  margin: 0 0 0.35rem;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+#app:has(.shell--admin) > .shell h2 {
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.65rem;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
 #center {
   display: flex;
   flex-direction: column;

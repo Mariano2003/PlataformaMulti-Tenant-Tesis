@@ -6,6 +6,9 @@
 # dotenv files
 .env
 
+# Credenciales locales (SMTP, ngrok, etc.); usar User Secrets o variables de entorno
+**/appsettings.Development.json
+
 # User-specific files
 *.rsuser
 *.suo

@@ -35,15 +35,26 @@ public sealed class AuthService : IAuthService
                 throw new InvalidOperationException(
                     "Ya existe un SuperAdmin. El registro público en este rol no está permitido.");
         }
-        else
+        else if (dto.Rol == Roles.AdminTienda)
         {
             if (string.IsNullOrWhiteSpace(dto.NegocioId))
-                throw new ArgumentException("AdminTienda y Cliente requieren NegocioId.");
+                throw new ArgumentException("AdminTienda requiere NegocioId.");
             if (!ObjectId.TryParse(dto.NegocioId, out _))
                 throw new ArgumentException("NegocioId no es un ObjectId válido.");
-            var negocio = await _negocios.Find(n => n.Id == dto.NegocioId).FirstOrDefaultAsync(ct);
-            if (negocio is null)
+            var negocioAdmin = await _negocios.Find(n => n.Id == dto.NegocioId).FirstOrDefaultAsync(ct);
+            if (negocioAdmin is null)
                 throw new InvalidOperationException("El negocio indicado no existe.");
+        }
+        else if (dto.Rol == Roles.Cliente)
+        {
+            if (!string.IsNullOrWhiteSpace(dto.NegocioId))
+            {
+                if (!ObjectId.TryParse(dto.NegocioId, out _))
+                    throw new ArgumentException("NegocioId no es un ObjectId válido.");
+                var negocioCliente = await _negocios.Find(n => n.Id == dto.NegocioId).FirstOrDefaultAsync(ct);
+                if (negocioCliente is null)
+                    throw new InvalidOperationException("El negocio indicado no existe.");
+            }
         }
 
         var existeEmail = await _usuarios.Find(u => u.Email == email).AnyAsync(ct);
@@ -65,7 +76,7 @@ public sealed class AuthService : IAuthService
         };
 
         await _usuarios.InsertOneAsync(usuario, cancellationToken: ct);
-        return BuildAuthResponse(usuario);
+        return await BuildAuthResponseAsync(usuario, ct);
     }
 
     public async Task<AuthResponse?> LoginAsync(LoginRequest dto, CancellationToken ct = default)
@@ -77,12 +88,34 @@ public sealed class AuthService : IAuthService
         if (!BCrypt.Net.BCrypt.Verify(dto.Password, usuario.PasswordHash))
             return null;
 
-        return BuildAuthResponse(usuario);
+        return await BuildAuthResponseAsync(usuario, ct);
     }
 
-    private AuthResponse BuildAuthResponse(Usuario u)
+    public async Task ActualizarPasswordPorEmailAsync(string emailNormalizado, string nuevaPassword, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(nuevaPassword) || nuevaPassword.Length < 8)
+            throw new ArgumentException("La contraseña debe tener al menos 8 caracteres.");
+
+        var hash = BCrypt.Net.BCrypt.HashPassword(nuevaPassword);
+        var res = await _usuarios.UpdateOneAsync(
+            u => u.Email == emailNormalizado && u.Activo,
+            Builders<Usuario>.Update.Set(u => u.PasswordHash, hash),
+            cancellationToken: ct);
+
+        if (res.MatchedCount == 0)
+            throw new InvalidOperationException("No se pudo actualizar la cuenta.");
+    }
+
+    private async Task<AuthResponse> BuildAuthResponseAsync(Usuario u, CancellationToken ct)
     {
         var (token, expiraEnUtc) = _tokens.CreateToken(u);
+        string? negocioSlug = null;
+        if (!string.IsNullOrEmpty(u.NegocioId))
+        {
+            var negocio = await _negocios.Find(n => n.Id == u.NegocioId).FirstOrDefaultAsync(ct);
+            negocioSlug = negocio?.Slug;
+        }
+
         return new AuthResponse
         {
             Token = token,
@@ -91,6 +124,7 @@ public sealed class AuthService : IAuthService
             {
                 Id = u.Id,
                 NegocioId = u.NegocioId,
+                NegocioSlug = negocioSlug,
                 Email = u.Email,
                 Nombre = u.Nombre,
                 Apellido = u.Apellido,
