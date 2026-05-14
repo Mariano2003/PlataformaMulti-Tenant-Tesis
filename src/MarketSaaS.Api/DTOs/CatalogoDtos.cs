@@ -49,6 +49,10 @@ public class CrearProductoRequest
     [Range(0, int.MaxValue)]
     public int Stock { get; set; }
 
+    /// <summary>URL https de la imagen (máx. 2048 caracteres). JSON camelCase: imagenUrl.</summary>
+    [MaxLength(2048)]
+    public string? ImagenUrl { get; set; }
+
     public Dictionary<string, string>? Atributos { get; set; }
 }
 
@@ -68,6 +72,9 @@ public class ActualizarProductoRequest
     [Range(0, int.MaxValue)]
     public int Stock { get; set; }
 
+    [MaxLength(2048)]
+    public string? ImagenUrl { get; set; }
+
     public Dictionary<string, string>? Atributos { get; set; }
 
     public bool Activo { get; set; } = true;
@@ -82,6 +89,8 @@ public class ProductoResponse
     public string? DescripcionCorta { get; set; }
     public decimal Precio { get; set; }
     public int Stock { get; set; }
+    public string? ImagenUrl { get; set; }
+
     public Dictionary<string, string>? Atributos { get; set; }
     public bool Activo { get; set; }
     public DateTime CreadoEn { get; set; }

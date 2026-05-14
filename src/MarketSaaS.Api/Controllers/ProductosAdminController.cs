@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MarketSaaS.Api.Authorization;
 using MarketSaaS.Api.DTOs;
 using MarketSaaS.Api.Infrastructure;
@@ -5,6 +6,7 @@ using MarketSaaS.Api.Models;
 using MarketSaaS.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace MarketSaaS.Api.Controllers;
 
@@ -13,8 +15,13 @@ namespace MarketSaaS.Api.Controllers;
 public class ProductosAdminController : ControllerBase
 {
     private readonly IProductoService _productos;
+    private readonly JsonSerializerOptions _json;
 
-    public ProductosAdminController(IProductoService productos) => _productos = productos;
+    public ProductosAdminController(IProductoService productos, IOptions<JsonOptions> jsonOptions)
+    {
+        _productos = productos;
+        _json = jsonOptions.Value.JsonSerializerOptions;
+    }
 
     [HttpGet]
     [Authorize(Policy = Policies.SuperAdminOrAdminTienda)]
@@ -25,11 +32,11 @@ public class ProductosAdminController : ControllerBase
         [FromQuery] string? categoriaId,
         CancellationToken ct)
     {
-        if (!TryNegocio(out var negocio))
+        if (!HttpContext.TryGetNegocioActual(out var negocio))
             return NotFound();
 
-        var list = await _productos.ListarPorNegocioAsync(negocio.Id, soloActivos: false, categoriaId, ct);
-        return Ok(list.Select(Map).ToList());
+        var productos = await _productos.ListarPorNegocioAsync(negocio.Id, soloActivos: false, categoriaId, ct);
+        return Ok(productos.Select(Map).ToList());
     }
 
     [HttpPost]
@@ -38,15 +45,28 @@ public class ProductosAdminController : ControllerBase
     [ProducesResponseType(typeof(ProductoResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ProductoResponse>> Crear([FromBody] CrearProductoRequest dto, CancellationToken ct)
+    public async Task<ActionResult<ProductoResponse>> Crear([FromBody] JsonElement json, CancellationToken ct)
     {
-        if (!TryNegocio(out var negocio))
+        if (!HttpContext.TryGetNegocioActual(out var negocio))
             return NotFound();
+
+        CrearProductoRequest solicitud;
+        try
+        {
+            solicitud = json.Deserialize<CrearProductoRequest>(_json)
+                ?? throw new JsonException("Cuerpo vacío.");
+        }
+        catch (JsonException)
+        {
+            return BadRequest(new { error = "JSON inválido o incompleto." });
+        }
+
+        FusionarImagenUrlSiFalta(solicitud, json);
 
         try
         {
-            var p = await _productos.CrearAsync(negocio.Id, dto, ct);
-            return CreatedAtAction(nameof(PorId), new { slug = negocio.Slug, id = p.Id }, Map(p));
+            var productoCreado = await _productos.CrearAsync(negocio.Id, solicitud, ct);
+            return CreatedAtAction(nameof(PorId), new { slug = negocio.Slug, id = productoCreado.Id }, Map(productoCreado));
         }
         catch (ArgumentException ex)
         {
@@ -65,14 +85,14 @@ public class ProductosAdminController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ProductoResponse>> PorId(string id, CancellationToken ct)
     {
-        if (!TryNegocio(out var negocio))
+        if (!HttpContext.TryGetNegocioActual(out var negocio))
             return NotFound();
 
-        var p = await _productos.ObtenerPorIdYNegocioAsync(id, negocio.Id, soloActivos: false, ct);
-        if (p is null)
+        var producto = await _productos.ObtenerPorIdYNegocioAsync(id, negocio.Id, soloActivos: false, ct);
+        if (producto is null)
             return NotFound();
 
-        return Ok(Map(p));
+        return Ok(Map(producto));
     }
 
     [HttpPut("{id}")]
@@ -81,17 +101,30 @@ public class ProductosAdminController : ControllerBase
     [ProducesResponseType(typeof(ProductoResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ProductoResponse>> Actualizar(string id, [FromBody] ActualizarProductoRequest dto, CancellationToken ct)
+    public async Task<ActionResult<ProductoResponse>> Actualizar(string id, [FromBody] JsonElement json, CancellationToken ct)
     {
-        if (!TryNegocio(out var negocio))
+        if (!HttpContext.TryGetNegocioActual(out var negocio))
             return NotFound();
+
+        ActualizarProductoRequest solicitud;
+        try
+        {
+            solicitud = json.Deserialize<ActualizarProductoRequest>(_json)
+                ?? throw new JsonException("Cuerpo vacío.");
+        }
+        catch (JsonException)
+        {
+            return BadRequest(new { error = "JSON inválido o incompleto." });
+        }
+
+        FusionarImagenUrlSiFalta(solicitud, json);
 
         try
         {
-            var p = await _productos.ActualizarAsync(negocio.Id, id, dto, ct);
-            if (p is null)
+            var productoActualizado = await _productos.ActualizarAsync(negocio.Id, id, solicitud, ct);
+            if (productoActualizado is null)
                 return NotFound();
-            return Ok(Map(p));
+            return Ok(Map(productoActualizado));
         }
         catch (ArgumentException ex)
         {
@@ -110,38 +143,74 @@ public class ProductosAdminController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Eliminar(string id, CancellationToken ct)
     {
-        if (!TryNegocio(out var negocio))
+        if (!HttpContext.TryGetNegocioActual(out var negocio))
             return NotFound();
 
-        var ok = await _productos.EliminarAsync(negocio.Id, id, ct);
-        if (!ok)
+        var eliminado = await _productos.EliminarAsync(negocio.Id, id, ct);
+        if (!eliminado)
             return NotFound();
         return NoContent();
     }
 
-    private bool TryNegocio(out Negocio negocio)
+    /// <summary>
+    /// <see cref="JsonElement.TryGetProperty"/> distingue mayúsculas; el binder puede no mapear <c>imagenUrl</c> al CLR <c>ImagenUrl</c> en algunos entornos.
+    /// </summary>
+    private static void FusionarImagenUrlSiFalta(CrearProductoRequest dto, JsonElement json)
     {
-        if (HttpContext.Items.TryGetValue(HttpContextItemKeys.NegocioActual, out var raw) && raw is Negocio n)
-        {
-            negocio = n;
-            return true;
-        }
-
-        negocio = null!;
-        return false;
+        if (!string.IsNullOrWhiteSpace(dto.ImagenUrl))
+            return;
+        var url = LeerImagenUrlDeJsonObjeto(json);
+        if (!string.IsNullOrWhiteSpace(url))
+            dto.ImagenUrl = url;
     }
 
-    private static ProductoResponse Map(Producto p) => new()
+    private static void FusionarImagenUrlSiFalta(ActualizarProductoRequest dto, JsonElement json)
     {
-        Id = p.Id,
-        NegocioId = p.NegocioId,
-        CategoriaId = p.CategoriaId,
-        Nombre = p.Nombre,
-        DescripcionCorta = p.DescripcionCorta,
-        Precio = p.Precio,
-        Stock = p.Stock,
-        Atributos = p.Atributos,
-        Activo = p.Activo,
-        CreadoEn = p.CreadoEn,
+        if (!string.IsNullOrWhiteSpace(dto.ImagenUrl))
+            return;
+        var url = LeerImagenUrlDeJsonObjeto(json);
+        if (!string.IsNullOrWhiteSpace(url))
+            dto.ImagenUrl = url;
+    }
+
+    private static string? LeerImagenUrlDeJsonObjeto(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object)
+            return null;
+        ReadOnlySpan<string> nombres =
+        [
+            "imagenUrl",
+            "ImagenUrl",
+            "imagen_url",
+            "imageUrl",
+            "ImageUrl",
+        ];
+        foreach (var name in nombres)
+        {
+            if (!root.TryGetProperty(name, out var el))
+                continue;
+            if (el.ValueKind != JsonValueKind.String)
+                continue;
+            var s = el.GetString();
+            if (!string.IsNullOrWhiteSpace(s))
+                return s;
+        }
+
+        return null;
+    }
+
+    private static ProductoResponse Map(Producto producto) => new()
+    {
+        Id = producto.Id,
+        NegocioId = producto.NegocioId,
+        CategoriaId = producto.CategoriaId,
+        Nombre = producto.Nombre,
+        DescripcionCorta = producto.DescripcionCorta,
+        ImagenUrl = producto.ImagenUrl,
+        Precio = producto.Precio,
+        Stock = producto.Stock,
+        Atributos = producto.Atributos,
+        Activo = producto.Activo,
+        CreadoEn = producto.CreadoEn,
     };
 }

@@ -50,6 +50,7 @@ public sealed class ProductoService : IProductoService
             throw new ArgumentException("El nombre es obligatorio.");
 
         await AsegurarCategoriaDelNegocioAsync(negocioId, dto.CategoriaId, ct);
+        var imagenUrl = NormalizarImagenUrl(dto.ImagenUrl);
 
         var prod = new Producto
         {
@@ -58,6 +59,7 @@ public sealed class ProductoService : IProductoService
             CategoriaId = string.IsNullOrWhiteSpace(dto.CategoriaId) ? null : dto.CategoriaId.Trim(),
             Nombre = nombre,
             DescripcionCorta = dto.DescripcionCorta?.Trim(),
+            ImagenUrl = imagenUrl,
             Precio = dto.Precio,
             Stock = dto.Stock,
             Atributos = NormalizarAtributos(dto.Atributos),
@@ -81,10 +83,12 @@ public sealed class ProductoService : IProductoService
             return null;
 
         await AsegurarCategoriaDelNegocioAsync(negocioId, dto.CategoriaId, ct);
+        var imagenUrl = NormalizarImagenUrl(dto.ImagenUrl);
 
         actual.CategoriaId = string.IsNullOrWhiteSpace(dto.CategoriaId) ? null : dto.CategoriaId.Trim();
         actual.Nombre = nombre;
         actual.DescripcionCorta = dto.DescripcionCorta?.Trim();
+        actual.ImagenUrl = imagenUrl;
         actual.Precio = dto.Precio;
         actual.Stock = dto.Stock;
         actual.Atributos = NormalizarAtributos(dto.Atributos);
@@ -118,6 +122,21 @@ public sealed class ProductoService : IProductoService
             throw new ArgumentException("El precio no puede ser negativo.");
         if (stock < 0)
             throw new ArgumentException("El stock no puede ser negativo.");
+    }
+
+    private static string? NormalizarImagenUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return null;
+        var t = url.Trim().Trim('\'', '"', '\u200b', '\u200c', '\u200d', '\ufeff');
+        if (string.IsNullOrEmpty(t))
+            return null;
+        if (t.Length > 2048)
+            throw new ArgumentException("ImagenUrl supera el largo máximo permitido.");
+        if (t.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase)
+            || t.StartsWith("data:text/html", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("ImagenUrl no permitida.");
+        return t;
     }
 
     private static Dictionary<string, string>? NormalizarAtributos(Dictionary<string, string>? atributos)

@@ -2,6 +2,7 @@ using MarketSaaS.Api.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace MarketSaaS.Api.Infrastructure;
@@ -48,6 +49,57 @@ public sealed class MongoIndexInitializer : IHostedService
         await productos.Indexes.CreateOneAsync(
             new CreateIndexModel<Producto>(
                 Builders<Producto>.IndexKeys.Ascending(p => p.NegocioId).Ascending(p => p.CategoriaId)),
+            cancellationToken: cancellationToken);
+
+        // Legado: BSON con clave "ImagenUrl" no mapea a la propiedad [BsonElement("imagenUrl")].
+        try
+        {
+            var productosBson = db.GetCollection<BsonDocument>(CollectionNames.Productos);
+            var soloLegacyImagen = Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.Exists("ImagenUrl", true),
+                Builders<BsonDocument>.Filter.Not(Builders<BsonDocument>.Filter.Exists("imagenUrl", true)));
+            var renombrados = await productosBson.UpdateManyAsync(
+                soloLegacyImagen,
+                Builders<BsonDocument>.Update.Rename("ImagenUrl", "imagenUrl"),
+                cancellationToken: cancellationToken);
+            if (renombrados.ModifiedCount > 0)
+                _log.LogInformation(
+                    "Productos: migrados {N} documentos (campo BSON ImagenUrl → imagenUrl).",
+                    renombrados.ModifiedCount);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Migración de campo imagen en productos omitida.");
+        }
+
+        var nombresColecciones = await (await db.ListCollectionNamesAsync(cancellationToken: cancellationToken))
+            .ToListAsync(cancellationToken);
+        if (!nombresColecciones.Contains(CollectionNames.Pedidos))
+            await db.CreateCollectionAsync(CollectionNames.Pedidos, cancellationToken: cancellationToken);
+
+        var pedidos = db.GetCollection<Pedido>(CollectionNames.Pedidos);
+        await pedidos.Indexes.CreateOneAsync(
+            new CreateIndexModel<Pedido>(
+                Builders<Pedido>.IndexKeys.Ascending(p => p.NegocioId).Descending(p => p.CreadoEn)),
+            cancellationToken: cancellationToken);
+
+        if (!nombresColecciones.Contains(CollectionNames.ChatMensajes))
+            await db.CreateCollectionAsync(CollectionNames.ChatMensajes, cancellationToken: cancellationToken);
+
+        var chatMensajes = db.GetCollection<ChatMensaje>(CollectionNames.ChatMensajes);
+        await chatMensajes.Indexes.CreateOneAsync(
+            new CreateIndexModel<ChatMensaje>(
+                Builders<ChatMensaje>.IndexKeys.Ascending(m => m.NegocioId).Descending(m => m.EnviadoEn)),
+            cancellationToken: cancellationToken);
+
+        if (!nombresColecciones.Contains(CollectionNames.PasswordResetTokens))
+            await db.CreateCollectionAsync(CollectionNames.PasswordResetTokens, cancellationToken: cancellationToken);
+
+        var resetTokens = db.GetCollection<PasswordResetToken>(CollectionNames.PasswordResetTokens);
+        await resetTokens.Indexes.CreateOneAsync(
+            new CreateIndexModel<PasswordResetToken>(
+                Builders<PasswordResetToken>.IndexKeys.Ascending(t => t.TokenHash),
+                new CreateIndexOptions { Unique = true }),
             cancellationToken: cancellationToken);
 
         _log.LogInformation("Índices MongoDB verificados/creados.");

@@ -24,6 +24,10 @@ public class Producto
     [BsonElement("descripcionCorta")]
     public string? DescripcionCorta { get; set; }
 
+    /// <summary>URL pública de imagen (hosting externo o CDN).</summary>
+    [BsonElement("imagenUrl")]
+    public string? ImagenUrl { get; set; }
+
     [BsonElement("precio")]
     [BsonRepresentation(BsonType.Decimal128)]
     public decimal Precio { get; set; }

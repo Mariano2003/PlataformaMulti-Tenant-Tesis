@@ -7,6 +7,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{62725E8E-F9B
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketSaaS.Api", "src\MarketSaaS.Api\MarketSaaS.Api.csproj", "{BA919680-3CFF-4C04-9E5E-C01B31E7E375}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketSaaS.Api.Tests", "src\MarketSaaS.Api.Tests\MarketSaaS.Api.Tests.csproj", "{1059C148-1619-48D8-A545-D50E8FE5B270}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,8 +22,13 @@ Global
 		{BA919680-3CFF-4C04-9E5E-C01B31E7E375}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BA919680-3CFF-4C04-9E5E-C01B31E7E375}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BA919680-3CFF-4C04-9E5E-C01B31E7E375}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1059C148-1619-48D8-A545-D50E8FE5B270}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1059C148-1619-48D8-A545-D50E8FE5B270}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1059C148-1619-48D8-A545-D50E8FE5B270}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1059C148-1619-48D8-A545-D50E8FE5B270}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{BA919680-3CFF-4C04-9E5E-C01B31E7E375} = {62725E8E-F9BE-4CA4-84F6-93F2591874F4}
+		{1059C148-1619-48D8-A545-D50E8FE5B270} = {62725E8E-F9BE-4CA4-84F6-93F2591874F4}
 	EndGlobalSection
 EndGlobal
