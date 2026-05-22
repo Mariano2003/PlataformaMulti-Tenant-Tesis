@@ -122,7 +122,7 @@ Funciona para **clientes** y **dueños** (cualquier usuario en la base). En Rend
 
 En local: copiá `appsettings.Development.example.json` → `appsettings.Development.json`, completá `Email` y reiniciá la API. Si SMTP falla en Development, el enlace igual aparece en la consola (`DEV — Enlace…`).
 
-El mail lleva un link a `/#/restablecer-clave?token=...` en producción (misma URL pública del front).
+El mail lleva un link a `/#/restablecer-clave/{token}` en producción (misma URL pública del front, **sin** `/#` al final de la variable de URL).
 
 ## Deploy en Render (pago Mercado Pago → vuelta a la tienda)
 

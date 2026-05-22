@@ -50,8 +50,8 @@ async function enviar() {
       <div class="portal-auth__card">
         <h1>Olvidé mi contraseña</h1>
         <p class="portal-auth__lead">
-          Te enviamos un enlace al correo si está registrado y el servidor tiene configurado Gmail (SMTP).
-          En desarrollo tenés que activar <code>Email:Enabled</code> y las credenciales en la API.
+          Si el correo está registrado, te enviamos un enlace para elegir una contraseña nueva (revisá
+          spam). El enlace caduca en aproximadamente 1 hora.
         </p>
         <form class="portal-form" @submit.prevent="enviar">
           <label class="portal-field">

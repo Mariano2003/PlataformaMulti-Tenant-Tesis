@@ -56,7 +56,7 @@ export const router = createRouter({
       component: RecuperarClaveView,
     },
     {
-      path: '/restablecer-clave',
+      path: '/restablecer-clave/:token?',
       name: 'restablecer-clave',
       component: RestablecerClaveView,
     },

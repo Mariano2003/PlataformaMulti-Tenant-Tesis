@@ -85,10 +85,12 @@ public sealed class PasswordRecoveryService : IPasswordRecoveryService
         await _tokens.InsertOneAsync(entidad, cancellationToken: ct);
 
         var baseUrl = ObtenerUrlBaseFront();
-        var link = FrontAppUrls.Construir(baseUrl, $"/restablecer-clave?token={plainHex}");
+        // Token en la ruta (no en ?query) para que Gmail/clientes no corten el enlace con /#/
+        var link = FrontAppUrls.Construir(baseUrl, $"/restablecer-clave/{plainHex}");
         var cuerpo =
             $"Hola {usuario.Nombre},\n\n" +
-            $"Para elegir una nueva contraseña en MarketSaaS abrí este enlace (caduca en {minutos} minutos):\n{link}\n\n" +
+            $"Para elegir una nueva contraseña en MarketSaaS abrí este enlace (caduca en {minutos} minutos):\n\n{link}\n\n" +
+            "Si el enlace no se abre al tocarlo, copiá y pegá la línea completa en el navegador.\n\n" +
             "Si no solicitaste este cambio, ignorá este mensaje.\n";
 
         if (_hostEnvironment.IsDevelopment())
