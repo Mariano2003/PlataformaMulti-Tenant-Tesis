@@ -44,8 +44,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="pick">
-    <header class="pick__head">
+  <main class="pick-page">
+    <header class="pick-hero pick-hero__row">
       <div>
         <h1>Elegí una tienda</h1>
         <p class="pick__sub">
@@ -69,12 +69,12 @@ onMounted(async () => {
     <p v-else-if="error" class="pick__state pick__state--err">{{ error }}</p>
     <p v-else-if="!tiendas.length" class="pick__state">Todavía no hay tiendas activas.</p>
 
-    <ul v-else class="pick__grid">
-      <li v-for="n in tiendas" :key="n.id" class="pick__card-wrap">
-        <RouterLink class="pick__card" :to="{ name: 'tienda', params: { slug: n.slug } }">
-          <span class="pick__nombre">{{ n.nombre }}</span>
-          <span v-if="n.descripcionCorta" class="pick__desc">{{ n.descripcionCorta }}</span>
-          <span class="pick__slug">{{ n.slug }}</span>
+    <ul v-else class="pick-grid">
+      <li v-for="n in tiendas" :key="n.id">
+        <RouterLink class="pick-card" :to="{ name: 'tienda', params: { slug: n.slug } }">
+          <span class="pick-card__name">{{ n.nombre }}</span>
+          <span v-if="n.descripcionCorta" class="pick-card__desc">{{ n.descripcionCorta }}</span>
+          <span class="pick-card__badge">Entrar a la tienda →</span>
         </RouterLink>
       </li>
     </ul>
@@ -86,29 +86,18 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.pick {
-  padding: 1.5rem 1.25rem 3rem;
-  max-width: 56rem;
-  margin: 0 auto;
-  text-align: left;
-}
-.pick__head {
+.pick-hero__row {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-h1 {
-  margin: 0 0 0.35rem;
-  font-size: 1.65rem;
 }
 .pick__sub {
   margin: 0;
   max-width: 36rem;
   line-height: 1.5;
-  color: var(--text, #4b5563);
+  color: var(--text);
   font-size: 0.95rem;
 }
 .pick__user {
@@ -119,12 +108,13 @@ h1 {
 }
 .pick__hello {
   font-size: 0.9rem;
-  color: var(--text, #374151);
+  color: var(--text-h);
+  font-weight: 600;
 }
 .pick__plataforma {
   font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--accent, #2563eb);
+  font-weight: 600;
+  color: var(--primary-dark);
   text-decoration: none;
 }
 .pick__plataforma:hover {
@@ -132,72 +122,35 @@ h1 {
 }
 .pick__out {
   font-size: 0.85rem;
-  padding: 0.35rem 0.65rem;
-  border-radius: 8px;
-  border: 1px solid var(--border, #d1d5db);
-  background: transparent;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
   cursor: pointer;
 }
 .pick__out:hover {
-  background: var(--code-bg, #f3f4f6);
+  border-color: var(--accent);
+  color: var(--accent-dark);
 }
 .pick__state {
   margin: 1rem 0;
-  color: var(--text-muted, #6b7280);
+  color: var(--text-muted);
 }
 .pick__state--err {
   color: #b91c1c;
 }
-.pick__grid {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-}
-.pick__card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  padding: 1rem;
-  border-radius: 12px;
-  border: 1px solid var(--accent-border, rgba(37, 99, 235, 0.35));
-  background: var(--accent-bg, rgba(37, 99, 235, 0.06));
-  text-decoration: none;
-  color: inherit;
-  min-height: 5rem;
-  transition: background 0.15s ease;
-}
-.pick__card:hover {
-  background: rgba(37, 99, 235, 0.12);
-}
-.pick__nombre {
-  font-weight: 600;
-  font-size: 1.05rem;
-  color: var(--text-h, #111827);
-}
-.pick__desc {
+.pick-card__desc {
   font-size: 0.85rem;
-  color: var(--text, #4b5563);
+  color: var(--text);
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.pick__slug {
-  margin-top: auto;
-  font-size: 0.75rem;
-  font-family: ui-monospace, monospace;
-  color: var(--text-muted, #6b7280);
-}
 .pick__foot {
   margin-top: 2rem;
   font-size: 0.9rem;
-  color: var(--text-muted, #6b7280);
-}
-.pick__foot a {
-  color: var(--accent, #2563eb);
+  color: var(--text-muted);
 }
 </style>

@@ -19,6 +19,22 @@ public sealed class AuthService : IAuthService
         _tokens = tokens;
     }
 
+    public Task<AuthResponse> RegistrarClienteAsync(RegistroClienteRequest dto, CancellationToken ct = default)
+    {
+        return RegistrarAsync(
+            new RegistroRequest
+            {
+                Email = dto.Email,
+                Password = dto.Password,
+                Nombre = dto.Nombre,
+                Apellido = dto.Apellido,
+                Telefono = dto.Telefono,
+                Rol = Roles.Cliente,
+                NegocioId = null,
+            },
+            ct);
+    }
+
     public async Task<AuthResponse> RegistrarAsync(RegistroRequest dto, CancellationToken ct = default)
     {
         if (!Roles.IsValid(dto.Rol))
@@ -32,8 +48,7 @@ public sealed class AuthService : IAuthService
                 throw new ArgumentException("SuperAdmin no debe tener NegocioId.");
             var yaHaySuper = await _usuarios.Find(u => u.Rol == Roles.SuperAdmin).AnyAsync(ct);
             if (yaHaySuper)
-                throw new InvalidOperationException(
-                    "Ya existe un SuperAdmin. El registro público en este rol no está permitido.");
+                throw new InvalidOperationException("Ya existe un SuperAdmin en la plataforma.");
         }
         else if (dto.Rol == Roles.AdminTienda)
         {

@@ -53,42 +53,45 @@ async function enviar() {
 </script>
 
 <template>
-  <div class="admin-login">
-    <nav class="admin-breadcrumb">
-      <RouterLink to="/">Inicio</RouterLink>
-      <span class="sep">·</span>
-      <RouterLink :to="{ name: 'tienda', params: { slug } }">Tienda pública</RouterLink>
-    </nav>
+  <div class="portal-auth portal-auth--admin">
+    <div class="portal-auth__backdrop" aria-hidden="true" />
 
-    <div class="admin-login__card">
-      <h1>Admin — {{ slug || '…' }}</h1>
-      <p class="admin-login__lead">
-        Ingresá con un usuario <strong>SuperAdmin</strong> o <strong>AdminTienda</strong> de este
-        negocio.
-      </p>
+    <div class="portal-auth__inner">
+      <RouterLink to="/" class="portal-auth__brand">Market<span>SaaS</span></RouterLink>
 
-      <form class="admin-form admin-form--stretch" @submit.prevent="enviar">
-        <label class="admin-field">
-          <span>Email</span>
-          <input v-model="email" type="email" required autocomplete="username" />
-        </label>
-        <label class="admin-field">
-          <span>Contraseña</span>
-          <input
-            v-model="password"
-            type="password"
-            required
-            autocomplete="current-password"
-          />
-        </label>
-        <p v-if="error" class="admin-msg admin-msg--error admin-msg--compact">{{ error }}</p>
-        <button type="submit" class="btn-primary" :disabled="enviando || !slug">
-          {{ enviando ? 'Entrando…' : 'Entrar' }}
-        </button>
-      </form>
-      <p class="admin-login__forgot">
-        <RouterLink :to="{ name: 'recuperar-clave' }">Olvidé mi contraseña</RouterLink>
-      </p>
+      <div class="portal-auth__card">
+        <h1>Admin — {{ slug || '…' }}</h1>
+        <p class="portal-auth__lead">
+          Ingresá con un usuario <strong>SuperAdmin</strong> o <strong>AdminTienda</strong> de este
+          negocio.
+        </p>
+
+        <form class="portal-form" @submit.prevent="enviar">
+          <label class="portal-field">
+            <span>Email</span>
+            <input v-model="email" type="email" required autocomplete="username" />
+          </label>
+          <label class="portal-field">
+            <span>Contraseña</span>
+            <input
+              v-model="password"
+              type="password"
+              required
+              autocomplete="current-password"
+            />
+          </label>
+          <p v-if="error" class="portal-msg portal-msg--error">{{ error }}</p>
+          <button type="submit" class="btn-primary" :disabled="enviando || !slug">
+            {{ enviando ? 'Entrando…' : 'Entrar' }}
+          </button>
+        </form>
+
+        <p class="portal-auth__links">
+          <RouterLink :to="{ name: 'tienda', params: { slug } }">Ver tienda pública</RouterLink>
+          <span class="portal-auth__sep">·</span>
+          <RouterLink :to="{ name: 'recuperar-clave' }">Olvidé mi contraseña</RouterLink>
+        </p>
+      </div>
     </div>
   </div>
 </template>

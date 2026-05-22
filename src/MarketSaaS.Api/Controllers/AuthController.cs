@@ -23,14 +23,15 @@ public class AuthController : ControllerBase
         _recuperacion = recuperacion;
     }
 
+    /// <summary>Alta pública de comprador (Cliente). Dueños de tienda los crea el SuperAdmin al dar de alta el negocio.</summary>
     [HttpPost("registro")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
-    public async Task<ActionResult<AuthResponse>> Registro([FromBody] RegistroRequest solicitud, CancellationToken ct)
+    public async Task<ActionResult<AuthResponse>> RegistroCliente([FromBody] RegistroClienteRequest solicitud, CancellationToken ct)
     {
         try
         {
-            return Ok(await _auth.RegistrarAsync(solicitud, ct));
+            return Ok(await _auth.RegistrarClienteAsync(solicitud, ct));
         }
         catch (ArgumentException ex)
         {

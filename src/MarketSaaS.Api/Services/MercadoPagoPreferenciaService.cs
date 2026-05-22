@@ -14,15 +14,18 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
     private readonly INegocioService _negocios;
     private readonly IPedidoService _pedidos;
     private readonly MercadoPagoOptions _opciones;
+    private readonly EmailOptions _email;
 
     public MercadoPagoPreferenciaService(
         INegocioService negocios,
         IPedidoService pedidos,
-        IOptions<MercadoPagoOptions> opciones)
+        IOptions<MercadoPagoOptions> opciones,
+        IOptions<EmailOptions> email)
     {
         _negocios = negocios;
         _pedidos = pedidos;
         _opciones = opciones.Value;
+        _email = email.Value;
     }
 
     public async Task<PreferenciaMercadoPagoResponse> CrearPreferenciaCheckoutProAsync(
@@ -60,15 +63,10 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
             UnitPrice = linea.PrecioUnitario,
         }).ToList();
 
-        var backUrlSuccess = string.IsNullOrWhiteSpace(_opciones.BackUrlSuccess)
-            ? $"{baseUrl}/swagger"
-            : _opciones.BackUrlSuccess;
-        var backUrlFailure = string.IsNullOrWhiteSpace(_opciones.BackUrlFailure)
-            ? $"{baseUrl}/swagger"
-            : _opciones.BackUrlFailure;
-        var backUrlPending = string.IsNullOrWhiteSpace(_opciones.BackUrlPending)
-            ? $"{baseUrl}/swagger"
-            : _opciones.BackUrlPending;
+        var appBase = ObtenerUrlBaseFront();
+        var backUrlSuccess = ResolverUrlRetornoTienda(_opciones.BackUrlSuccess, appBase, slugNegocio, "ok");
+        var backUrlFailure = ResolverUrlRetornoTienda(_opciones.BackUrlFailure, appBase, slugNegocio, "error");
+        var backUrlPending = ResolverUrlRetornoTienda(_opciones.BackUrlPending, appBase, slugNegocio, "pending");
 
         // MP rechaza `auto_return` si la URL de success no es pública (p. ej. apunta a localhost).
         var permiteAutoReturn = EsUrlPublicaParaMercadoPago(backUrlSuccess);
@@ -111,6 +109,26 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
                 ?? throw new InvalidOperationException("Mercado Pago no devolvió URL de pago."),
             UrlPagoSandbox = preferenciaCreada.SandboxInitPoint,
         };
+    }
+
+    private string ObtenerUrlBaseFront()
+    {
+        var app = _opciones.PublicAppBaseUrl?.Trim().TrimEnd('/');
+        if (!string.IsNullOrEmpty(app))
+            return app;
+        app = _email.PublicAppBaseUrl?.Trim().TrimEnd('/');
+        if (!string.IsNullOrEmpty(app))
+            return app;
+        throw new InvalidOperationException(
+            "Configurá MercadoPago:PublicAppBaseUrl o Email:PublicAppBaseUrl con la URL pública del front (ej. https://tu-app.onrender.com).");
+    }
+
+    private static string ResolverUrlRetornoTienda(string? plantilla, string appBase, string slug, string pago)
+    {
+        if (!string.IsNullOrWhiteSpace(plantilla) && plantilla.Contains("{slug}", StringComparison.Ordinal))
+            return plantilla.Replace("{slug}", Uri.EscapeDataString(slug), StringComparison.Ordinal);
+
+        return $"{appBase}/tienda/{Uri.EscapeDataString(slug)}?pago={pago}";
     }
 
     private static bool EsUrlPublicaParaMercadoPago(string? url)

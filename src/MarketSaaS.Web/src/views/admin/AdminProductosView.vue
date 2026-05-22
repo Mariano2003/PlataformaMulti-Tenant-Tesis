@@ -428,6 +428,8 @@ onMounted(() => {
     <nav class="admin-breadcrumb">
       <RouterLink to="/">Inicio</RouterLink>
       <span class="sep">·</span>
+      <RouterLink :to="{ name: 'admin-categorias', params: { slug } }">Categorías</RouterLink>
+      <span class="sep">·</span>
       <RouterLink :to="{ name: 'tienda', params: { slug } }">Ver tienda pública</RouterLink>
     </nav>
 

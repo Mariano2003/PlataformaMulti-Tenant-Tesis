@@ -101,34 +101,34 @@ async function confirmarPedido() {
 </script>
 
 <template>
-  <div class="checkout">
+  <div class="checkout-page">
     <nav class="breadcrumb">
       <RouterLink :to="{ name: 'tienda', params: { slug } }">← Volver a la tienda</RouterLink>
     </nav>
 
     <h1>Checkout</h1>
 
-    <p v-if="!slug" class="alert">Slug inválido.</p>
+    <p v-if="!slug" class="checkout-alert">Slug inválido.</p>
 
     <template v-else-if="!slugOk">
-      <p v-if="carrito.items.length === 0" class="alert">
+      <p v-if="carrito.items.length === 0" class="checkout-alert">
         Tu carrito está vacío. Agregá productos desde
         <RouterLink :to="{ name: 'tienda', params: { slug } }">la tienda</RouterLink>.
       </p>
-      <p v-else class="alert">
+      <p v-else class="checkout-alert">
         El carrito pertenece a la tienda «{{ carrito.slugTienda }}». Abrí el checkout desde esa tienda o vaciá el carrito
         navegando a la tienda correcta.
       </p>
     </template>
 
     <template v-else>
-      <section class="bloque">
+      <section class="checkout-card">
         <h2>Resumen</h2>
-        <ul class="lineas">
-          <li v-for="l in carrito.items" :key="l.productoId" class="linea">
+        <ul class="checkout-lineas">
+          <li v-for="l in carrito.items" :key="l.productoId" class="checkout-linea">
             <img
               v-if="l.imagenUrl"
-              class="linea-thumb"
+              class="checkout-linea-thumb"
               :src="l.imagenUrl"
               :alt="`Foto de ${l.nombre}`"
               loading="lazy"
@@ -162,13 +162,13 @@ async function confirmarPedido() {
         </p>
       </section>
 
-      <section class="bloque">
+      <section class="checkout-card">
         <h2>Datos del cliente</h2>
-        <label class="field">
+        <label class="checkout-field">
           <span>Nombre</span>
           <input v-model="clienteNombre" type="text" maxlength="120" autocomplete="name" />
         </label>
-        <label class="field">
+        <label class="checkout-field">
           <span>Email <em class="req">*</em></span>
           <input
             v-model="clienteEmail"
@@ -178,23 +178,25 @@ async function confirmarPedido() {
             autocomplete="email"
           />
         </label>
-        <label class="field">
+        <label class="checkout-field">
           <span>Teléfono</span>
           <input v-model="clienteTelefono" type="tel" maxlength="40" autocomplete="tel" />
         </label>
       </section>
 
-      <p v-if="mensaje" class="alert" :class="{ ok: mensajeOk }">{{ mensaje }}</p>
+      <p v-if="mensaje" class="checkout-alert" :class="{ 'checkout-alert--ok': mensajeOk }">
+        {{ mensaje }}
+      </p>
 
       <button
         type="button"
-        class="btn-prim"
+        class="btn-primary"
         :disabled="enviando || !clienteEmail.trim()"
         @click="confirmarPedido"
       >
         {{ enviando ? 'Enviando…' : 'Confirmar y pagar con Mercado Pago' }}
       </button>
-      <p class="hint">
+      <p class="checkout-hint">
         Si Mercado Pago no está configurado en la API, el pedido igual puede crearse y verás un mensaje con el id.
       </p>
     </template>
@@ -202,55 +204,6 @@ async function confirmarPedido() {
 </template>
 
 <style scoped>
-.checkout {
-  padding: 1.5rem 1.25rem 3rem;
-  max-width: 36rem;
-  margin: 0 auto;
-  text-align: left;
-}
-.breadcrumb {
-  margin-bottom: 1rem;
-}
-.breadcrumb a {
-  color: var(--text-h, #2563eb);
-  text-decoration: none;
-}
-.breadcrumb a:hover {
-  text-decoration: underline;
-}
-h1 {
-  margin: 0 0 1rem;
-  font-size: 1.4rem;
-}
-h2 {
-  margin: 0 0 0.75rem;
-  font-size: 1.1rem;
-}
-.bloque {
-  margin-bottom: 1.5rem;
-}
-.lineas {
-  list-style: none;
-  margin: 0 0 1rem;
-  padding: 0;
-}
-.linea {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem 0.75rem;
-  padding: 0.65rem 0;
-  border-bottom: 1px solid var(--border, #e5e7eb);
-}
-.linea-thumb {
-  width: 3rem;
-  height: 3rem;
-  object-fit: cover;
-  border-radius: 8px;
-  flex-shrink: 0;
-  border: 1px solid var(--border, #e5e7eb);
-}
 .info {
   display: flex;
   flex-direction: column;
@@ -259,11 +212,12 @@ h2 {
   min-width: 0;
 }
 .nombre {
-  font-weight: 500;
+  font-weight: 600;
+  color: var(--text-h);
 }
 .sub {
   font-size: 0.85rem;
-  color: var(--text, #6b7280);
+  color: var(--text-muted);
 }
 .ctrl {
   display: flex;
@@ -273,8 +227,8 @@ h2 {
 .qty {
   width: 3.5rem;
   padding: 0.25rem 0.4rem;
-  border-radius: 6px;
-  border: 1px solid var(--border, #d1d5db);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
 }
 .link {
   border: none;
@@ -285,61 +239,13 @@ h2 {
   text-decoration: underline;
 }
 .total {
-  margin: 0;
-  font-size: 1rem;
+  margin: 0.75rem 0 0;
+  font-size: 1.05rem;
 }
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin-bottom: 0.75rem;
-}
-.field span {
-  font-size: 0.9rem;
-  color: var(--text, #4b5563);
+.total strong {
+  color: var(--primary-dark);
 }
 .req {
   color: #b91c1c;
-}
-.field input {
-  padding: 0.45rem 0.6rem;
-  border-radius: 8px;
-  border: 1px solid var(--border, #d1d5db);
-  font-size: 1rem;
-}
-.alert {
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  background: #fef2f2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
-}
-.alert.ok {
-  background: #ecfdf5;
-  color: #065f46;
-  border-color: #a7f3d0;
-}
-.btn-prim {
-  margin-top: 0.5rem;
-  padding: 0.6rem 1.2rem;
-  border-radius: 8px;
-  border: none;
-  background: #2563eb;
-  color: #fff;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-.btn-prim:hover:not(:disabled) {
-  background: #1d4ed8;
-}
-.btn-prim:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.hint {
-  margin-top: 0.75rem;
-  font-size: 0.85rem;
-  color: var(--text, #6b7280);
 }
 </style>

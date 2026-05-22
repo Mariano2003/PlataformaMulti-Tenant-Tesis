@@ -8,10 +8,20 @@ public sealed class MercadoPagoOptions
     /// <summary>Access Token de prueba o producción. Vacío deshabilita preferencias y el webhook solo responde OK.</summary>
     public string AccessToken { get; set; } = "";
 
-    /// <summary>URL base pública de esta API (sin barra final), ej. https://xxxx.ngrok-free.app para que MP llame al webhook en desarrollo.</summary>
+    /// <summary>URL base pública de esta API (sin barra final), ej. https://tu-api.onrender.com para webhooks.</summary>
     public string PublicApiBaseUrl { get; set; } = "";
 
-    /// <summary>URLs de retorno post-pago (Checkout Pro). Si quedan vacías, MP usa valores por defecto del panel.</summary>
+    /// <summary>
+    /// URL base del front (sin barra final), ej. https://tu-front.onrender.com.
+    /// Si está vacía, se usa <see cref="EmailOptions.PublicAppBaseUrl"/>.
+    /// Las back URLs de Checkout Pro se arman como /tienda/{slug}?pago=ok|error|pending.
+    /// </summary>
+    public string PublicAppBaseUrl { get; set; } = "";
+
+    /// <summary>
+    /// Plantillas opcionales con <c>{slug}</c> (ej. https://front.com/tienda/{slug}?pago=ok).
+    /// Si están vacías, se generan desde <see cref="PublicAppBaseUrl"/>.
+    /// </summary>
     public string? BackUrlSuccess { get; set; }
     public string? BackUrlFailure { get; set; }
     public string? BackUrlPending { get; set; }

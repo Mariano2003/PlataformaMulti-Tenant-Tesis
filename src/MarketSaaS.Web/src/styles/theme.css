@@ -1,0 +1,52 @@
+/* Tema marketplace: claro, cálido y colorido (sin modo oscuro automático). */
+
+:root {
+  color-scheme: light;
+
+  --font-sans: 'Segoe UI', system-ui, Roboto, 'Helvetica Neue', sans-serif;
+
+  --text: #475569;
+  --text-muted: #64748b;
+  --text-h: #0f172a;
+
+  --bg: #f1f5f9;
+  --bg-soft: #e8f4f8;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  --primary: #0d9488;
+  --primary-dark: #0f766e;
+  --primary-light: #ccfbf1;
+  --primary-border: rgba(13, 148, 136, 0.35);
+
+  --accent: #ea580c;
+  --accent-dark: #c2410c;
+  --accent-light: #ffedd5;
+  --accent-bg: rgba(234, 88, 12, 0.1);
+  --accent-border: rgba(234, 88, 12, 0.35);
+
+  --hero-from: #0d9488;
+  --hero-to: #0369a1;
+
+  --code-bg: #f8fafc;
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.1);
+  --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.12);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --sans: var(--font-sans);
+  --heading: var(--font-sans);
+  --mono: ui-monospace, Consolas, monospace;
+
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  background: var(--bg);
+}

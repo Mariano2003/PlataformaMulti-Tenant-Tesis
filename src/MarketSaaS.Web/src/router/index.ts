@@ -3,6 +3,7 @@ import type { RouteLocationRaw } from 'vue-router'
 import TiendaView from '../views/TiendaView.vue'
 import CheckoutView from '../views/CheckoutView.vue'
 import PortalLoginView from '../views/PortalLoginView.vue'
+import PortalRegistroView from '../views/PortalRegistroView.vue'
 import RecuperarClaveView from '../views/RecuperarClaveView.vue'
 import RestablecerClaveView from '../views/RestablecerClaveView.vue'
 import SeleccionTiendasView from '../views/SeleccionTiendasView.vue'
@@ -10,6 +11,7 @@ import SuperAdminPlataformaView from '../views/SuperAdminPlataformaView.vue'
 import AdminLoginView from '../views/admin/AdminLoginView.vue'
 import AdminPedidosView from '../views/admin/AdminPedidosView.vue'
 import AdminProductosView from '../views/admin/AdminProductosView.vue'
+import AdminCategoriasView from '../views/admin/AdminCategoriasView.vue'
 import AdminAnalyticsView from '../views/admin/AdminAnalyticsView.vue'
 import AdminChatView from '../views/admin/AdminChatView.vue'
 import AdminMercadoPagoView from '../views/admin/AdminMercadoPagoView.vue'
@@ -41,6 +43,11 @@ export const router = createRouter({
       path: '/acceder',
       name: 'portal-login',
       component: PortalLoginView,
+    },
+    {
+      path: '/registro',
+      name: 'portal-registro',
+      component: PortalRegistroView,
     },
     {
       path: '/recuperar-clave',
@@ -79,6 +86,12 @@ export const router = createRouter({
       path: '/admin/:slug/productos',
       name: 'admin-productos',
       component: AdminProductosView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/:slug/categorias',
+      name: 'admin-categorias',
+      component: AdminCategoriasView,
       meta: { requiresAuth: true },
     },
     {

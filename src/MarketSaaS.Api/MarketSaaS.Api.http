@@ -7,17 +7,7 @@
 @tokenSuper = TOKEN_SUPERADMIN_AQUI
 @tokenAdmin = TOKEN_ADMIN_TIENDA_AQUI
 
-### 1) Primer usuario: SuperAdmin (solo si aún no hay ninguno en la BD)
-POST {{host}}/api/auth/registro
-Content-Type: application/json
-
-{
-  "email": "admin@plataforma.com",
-  "password": "ClaveSegura1",
-  "nombre": "Admin",
-  "apellido": "Plataforma",
-  "rol": "SuperAdmin"
-}
+### 1) SuperAdmin: usar DevSeed en Development o insertar manualmente en BD (no hay registro público)
 
 ### 2) Login SuperAdmin → copiar token a @tokenSuper
 POST {{host}}/api/auth/login
@@ -87,7 +77,7 @@ GET {{host}}/api/negocios
 ### Negocio por slug (público)
 GET {{host}}/api/negocios/mi-tienda-demo
 
-### Registro Cliente sin negocio (comprador multi-tienda; negocioId opcional)
+### Registro público Cliente (comprador; sin rol ni negocioId en el body)
 POST {{host}}/api/auth/registro
 Content-Type: application/json
 
@@ -95,24 +85,14 @@ Content-Type: application/json
   "email": "cliente@ejemplo.com",
   "password": "ClaveSegura1",
   "nombre": "Ana",
-  "rol": "Cliente"
+  "apellido": "García"
 }
 
 ### Contexto admin: SuperAdmin o AdminTienda cuyo negocio_id coincida con el slug
 GET {{host}}/api/negocios/mi-tienda-demo/admin/contexto
 Authorization: Bearer {{tokenSuper}}
 
-### Registro Admin tienda (reemplazar NEGOCIO_ID del paso 3)
-POST {{host}}/api/auth/registro
-Content-Type: application/json
-
-{
-  "email": "dueño@mitienda.com",
-  "password": "ClaveSegura1",
-  "nombre": "Dueño",
-  "rol": "AdminTienda",
-  "negocioId": "NEGOCIO_ID_AQUI"
-}
+### Dueño de tienda: se crea con POST /api/negocios + tiendaAdminEmail (paso «Crear negocio + usuario dueño»)
 
 ### Contexto admin con token de la tienda (pegar en @tokenAdmin)
 GET {{host}}/api/negocios/mi-tienda-demo/admin/contexto
