@@ -1,10 +1,12 @@
 using MarketSaaS.Api.DTOs;
+using MarketSaaS.Api.Infrastructure;
 using MarketSaaS.Api.Models;
 using MarketSaaS.Api.Options;
 using MercadoPago.Client;
 using MercadoPago.Client.Common;
 using MercadoPago.Client.Preference;
 using MercadoPago.Resource.Preference;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace MarketSaaS.Api.Services;
@@ -15,17 +17,20 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
     private readonly IPedidoService _pedidos;
     private readonly MercadoPagoOptions _opciones;
     private readonly EmailOptions _email;
+    private readonly ILogger<MercadoPagoPreferenciaService> _log;
 
     public MercadoPagoPreferenciaService(
         INegocioService negocios,
         IPedidoService pedidos,
         IOptions<MercadoPagoOptions> opciones,
-        IOptions<EmailOptions> email)
+        IOptions<EmailOptions> email,
+        ILogger<MercadoPagoPreferenciaService> log)
     {
         _negocios = negocios;
         _pedidos = pedidos;
         _opciones = opciones.Value;
         _email = email.Value;
+        _log = log;
     }
 
     public async Task<PreferenciaMercadoPagoResponse> CrearPreferenciaCheckoutProAsync(
@@ -64,9 +69,16 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
         }).ToList();
 
         var appBase = ObtenerUrlBaseFront();
+        ValidarUrlBaseFront(appBase, baseUrl);
         var backUrlSuccess = ResolverUrlRetornoTienda(_opciones.BackUrlSuccess, appBase, slugNegocio, "ok");
         var backUrlFailure = ResolverUrlRetornoTienda(_opciones.BackUrlFailure, appBase, slugNegocio, "error");
         var backUrlPending = ResolverUrlRetornoTienda(_opciones.BackUrlPending, appBase, slugNegocio, "pending");
+
+        _log.LogInformation(
+            "MP preferencia pedido {PedidoId} tienda {Slug}: retorno success={Success}",
+            pedidoId,
+            slugNegocio,
+            backUrlSuccess);
 
         // MP rechaza `auto_return` si la URL de success no es pública (p. ej. apunta a localhost).
         var permiteAutoReturn = EsUrlPublicaParaMercadoPago(backUrlSuccess);
@@ -108,7 +120,26 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
             UrlPago = preferenciaCreada.InitPoint ?? preferenciaCreada.SandboxInitPoint
                 ?? throw new InvalidOperationException("Mercado Pago no devolvió URL de pago."),
             UrlPagoSandbox = preferenciaCreada.SandboxInitPoint,
+            UrlRetornoExito = backUrlSuccess,
         };
+    }
+
+    private void ValidarUrlBaseFront(string appBase, string apiBase)
+    {
+        if (string.Equals(appBase, apiBase, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                "MercadoPago:PublicAppBaseUrl no puede ser la misma URL que PublicApiBaseUrl. " +
+                "PublicAppBaseUrl debe ser la del front (static site), ej. https://tu-app.onrender.com");
+
+        if (appBase.Contains("/api", StringComparison.OrdinalIgnoreCase) ||
+            appBase.Contains("swagger", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                "MercadoPago:PublicAppBaseUrl parece apuntar a la API. Usá la URL del sitio Vue (static site).");
+
+        if (!Uri.TryCreate(appBase, UriKind.Absolute, out var uri) ||
+            uri.Scheme is not ("http" or "https"))
+            throw new InvalidOperationException(
+                "MercadoPago:PublicAppBaseUrl debe ser una URL absoluta http(s) del front.");
     }
 
     private string ObtenerUrlBaseFront()
@@ -126,9 +157,10 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
     private static string ResolverUrlRetornoTienda(string? plantilla, string appBase, string slug, string pago)
     {
         if (!string.IsNullOrWhiteSpace(plantilla) && plantilla.Contains("{slug}", StringComparison.Ordinal))
-            return plantilla.Replace("{slug}", Uri.EscapeDataString(slug), StringComparison.Ordinal);
+            return plantilla.Replace("{slug}", Uri.EscapeDataString(slug.Trim()), StringComparison.Ordinal);
 
-        return $"{appBase}/tienda/{Uri.EscapeDataString(slug)}?pago={pago}";
+        var slugPath = Uri.EscapeDataString(slug.Trim());
+        return FrontAppUrls.Construir(appBase, $"/tienda/{slugPath}?pago={pago}");
     }
 
     private static bool EsUrlPublicaParaMercadoPago(string? url)

@@ -1,4 +1,5 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter } from 'vue-router'
+import { crearHistorialRouter } from './history'
 import type { RouteLocationRaw } from 'vue-router'
 import TiendaView from '../views/TiendaView.vue'
 import CheckoutView from '../views/CheckoutView.vue'
@@ -32,7 +33,7 @@ function resolverInicio(): RouteLocationRaw {
 }
 
 export const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: crearHistorialRouter(),
   routes: [
     {
       path: '/',

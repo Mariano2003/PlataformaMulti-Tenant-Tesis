@@ -105,6 +105,18 @@ git push -u origin main
 
 3. Convención de commits: mensajes claros en español o inglés, un cambio lógico por commit cuando puedas.
 
+## Deploy en Render (pago Mercado Pago → vuelta a la tienda)
+
+Tras pagar, Mercado Pago redirige al front. En **producción** (Render) las URLs usan **hash** para evitar 404 sin configurar rewrites:
+
+`https://TU-FRONT.onrender.com/#/tienda/mi-tienda-demo?pago=ok`
+
+**Variables API:** `MercadoPago__PublicAppBaseUrl` = URL del static site (no la API). En logs: `retorno success=...` debe mostrar `/#/tienda/...`.
+
+**Importante:** cada pago usa la preferencia creada en ese momento. Después de un deploy, hacé un **pedido nuevo** para probar.
+
+Opcional en Render static site: rewrite `/*` → `/index.html` y en el build `VITE_ROUTER_HASH=false` (URLs sin `#`).
+
 ## Próximos pasos sugeridos
 
 - **MarketSaaS.Web**: router por `slug`, catálogo, carrito (Pinia), checkout MP, panel admin con JWT.
