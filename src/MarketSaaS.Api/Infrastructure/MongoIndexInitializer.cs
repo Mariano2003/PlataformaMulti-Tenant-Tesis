@@ -21,6 +21,18 @@ public sealed class MongoIndexInitializer : IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        try
+        {
+            await InicializarAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "No se pudieron crear índices MongoDB al iniciar; la API sigue en ejecución.");
+        }
+    }
+
+    private async Task InicializarAsync(CancellationToken cancellationToken)
+    {
         using var scope = _sp.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<IMongoDatabase>();
 

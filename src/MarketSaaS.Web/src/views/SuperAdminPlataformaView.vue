@@ -202,8 +202,9 @@ async function restablecerClaveUsuario() {
     <section class="sap__panel sap__panel--accent">
       <h2 class="sap__h2">Alta de nueva tienda</h2>
       <p class="sap__hint">
-        El <code>slug</code> es la URL de la tienda (minúsculas, números y guiones). Podés crear en el mismo
-        paso el usuario que administrará el panel del negocio (dueño).
+        El <code>slug</code> es la URL de la tienda (minúsculas, números y guiones). Los
+        <strong>clientes</strong> se registran solos en <code>/registro</code>; desde acá solo das de alta
+        la tienda y el <strong>dueño</strong> (AdminTienda).
       </p>
       <form class="sap__form" @submit.prevent="crearTienda">
         <h3 class="sap__h3">Datos del negocio</h3>
@@ -224,10 +225,10 @@ async function restablecerClaveUsuario() {
           <input v-model="crearEmail" type="email" maxlength="200" />
         </label>
 
-        <h3 class="sap__h3 sap__h3--sep">Dueño — panel de la tienda (opcional)</h3>
+        <h3 class="sap__h3 sap__h3--sep">Dueño — panel de la tienda (recomendado)</h3>
         <p class="sap__hint sap__hint--tight">
-          Si completás el email del dueño, también hay que cargar nombre y contraseña (mín. 8 caracteres).
-          Esa persona podrá entrar en <strong>Acceso</strong> o en <code>/admin/&lt;slug&gt;/login</code>.
+          El dueño no puede registrarse en la web pública: cargá su email, nombre y contraseña inicial
+          (mín. 8). Entrará en <code>/admin/&lt;slug&gt;/login</code>.
         </p>
         <label class="sap__field sap__field--grow">
           <span>Email del dueño (login)</span>
@@ -269,9 +270,8 @@ async function restablecerClaveUsuario() {
     <section class="sap__panel">
       <h2 class="sap__h2">Restablecer contraseña de un usuario</h2>
       <p class="sap__hint">
-        Sin correo ni SMTP: definís una clave nueva para cualquier cuenta ya registrada (dueño, cliente,
-        etc.). La config de Gmail en la API sirve solo para que cada usuario use «Olvidé mi contraseña» por
-        sí mismo; esto es para soporte desde plataforma.
+        Sin correo ni SMTP: definís una clave nueva para un dueño de tienda (u otro usuario existente).
+        Los clientes suelen usar «Olvidé mi contraseña» o registrarse en <code>/registro</code>.
       </p>
       <form class="sap__form" @submit.prevent="restablecerClaveUsuario">
         <label class="sap__field sap__field--grow">

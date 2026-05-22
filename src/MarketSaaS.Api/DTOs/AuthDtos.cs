@@ -2,6 +2,25 @@ using System.ComponentModel.DataAnnotations;
 
 namespace MarketSaaS.Api.DTOs;
 
+/// <summary>Registro público: solo compradores (Cliente), sin negocio fijo.</summary>
+public class RegistroClienteRequest
+{
+    [Required, EmailAddress, MaxLength(200)]
+    public string Email { get; set; } = null!;
+
+    [Required, MinLength(8), MaxLength(200)]
+    public string Password { get; set; } = null!;
+
+    [Required, MaxLength(100)]
+    public string Nombre { get; set; } = null!;
+
+    [MaxLength(100)]
+    public string? Apellido { get; set; }
+
+    [MaxLength(40)]
+    public string? Telefono { get; set; }
+}
+
 public class RegistroRequest
 {
     [Required, EmailAddress, MaxLength(200)]

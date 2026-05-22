@@ -23,6 +23,13 @@ defineProps<{ slug: string }>()
     <RouterLink
       class="admin-tabs-link"
       active-class="admin-tabs-link--active"
+      :to="{ name: 'admin-categorias', params: { slug } }"
+    >
+      Categorías
+    </RouterLink>
+    <RouterLink
+      class="admin-tabs-link"
+      active-class="admin-tabs-link--active"
       :to="{ name: 'admin-analytics', params: { slug } }"
     >
       Analytics

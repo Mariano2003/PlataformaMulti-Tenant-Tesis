@@ -1,4 +1,4 @@
-/* Panel admin: layout full-width y componentes alineados con :root (--accent violeta). */
+/* Panel admin: layout full-width; usa tokens del tema (teal + naranja). */
 
 .admin-page {
   max-width: 56rem;
