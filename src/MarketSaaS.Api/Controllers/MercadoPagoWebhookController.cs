@@ -161,6 +161,10 @@ public sealed class MercadoPagoWebhookController : ControllerBase
                 }
 
                 await _pedidos.ProcesarPagoAprobadoMercadoPagoAsync(pedidoId, pago.Id.ToString()!, ct);
+                _log.LogInformation(
+                    "Webhook MP: pedido {PedidoId} pago {PaymentId} aprobado",
+                    pedidoId,
+                    pago.Id);
                 return Ok();
 
             case MercadoPagoPaymentWebhookClassifier.ResultadoNotificacionPago.RechazoTerminal:

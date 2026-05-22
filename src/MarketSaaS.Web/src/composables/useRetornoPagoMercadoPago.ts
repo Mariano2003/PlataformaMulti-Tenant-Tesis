@@ -1,6 +1,7 @@
 import type { LocationQuery } from 'vue-router'
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { apiUrl } from '../config/api'
 
 export type RetornoPagoTipo = 'ok' | 'error' | 'pending'
 
@@ -9,17 +10,24 @@ export interface RetornoPagoMensaje {
   texto: string
 }
 
+export interface ConfirmarPagoRetornoDto {
+  procesado: boolean
+  pedidoId?: string | null
+  estadoPedido?: string | null
+  mensaje: string
+}
+
 function normalizarQuery(val: unknown): string {
   if (val == null) return ''
   const s = Array.isArray(val) ? val[0] : val
-  return String(s ?? '').trim().toLowerCase()
+  return String(s ?? '').trim()
 }
 
 /** Interpreta query de MP (collection_status) o nuestra (?pago=ok|error|pending). */
 export function mensajeDesdeQueryPago(query: LocationQuery): RetornoPagoMensaje | null {
-  const pago = normalizarQuery(query.pago)
-  const collectionStatus = normalizarQuery(query.collection_status)
-  const status = normalizarQuery(query.status)
+  const pago = normalizarQuery(query.pago).toLowerCase()
+  const collectionStatus = normalizarQuery(query.collection_status).toLowerCase()
+  const status = normalizarQuery(query.status).toLowerCase()
 
   const aprobado =
     pago === 'ok' ||
@@ -29,7 +37,7 @@ export function mensajeDesdeQueryPago(query: LocationQuery): RetornoPagoMensaje 
     return {
       tipo: 'ok',
       texto:
-        '¡Pago recibido! Tu pedido se está confirmando. Si no ves el stock actualizado al instante, esperá unos segundos.',
+        '¡Pago recibido! Confirmando tu pedido y actualizando el stock…',
     }
   }
 
@@ -62,22 +70,95 @@ export function mensajeDesdeQueryPago(query: LocationQuery): RetornoPagoMensaje 
   return null
 }
 
-/** Lee el retorno de MP una vez, muestra mensaje y limpia la URL (evita recargas raras). */
-export function useRetornoPagoMercadoPago(slug: () => string) {
+function queryTieneIdsMp(query: LocationQuery): boolean {
+  return !!(
+    normalizarQuery(query.payment_id) ||
+    normalizarQuery(query.collection_id) ||
+    normalizarQuery(query.merchant_order_id) ||
+    normalizarQuery(query.external_reference)
+  )
+}
+
+async function confirmarPagoEnApi(
+  slug: string,
+  query: LocationQuery,
+): Promise<ConfirmarPagoRetornoDto | null> {
+  if (!queryTieneIdsMp(query)) return null
+
+  try {
+    const res = await fetch(
+      apiUrl(`/api/negocios/${encodeURIComponent(slug)}/pedidos/mercadopago/confirmar-retorno`),
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentId: normalizarQuery(query.payment_id) || undefined,
+          collectionId: normalizarQuery(query.collection_id) || undefined,
+          externalReference: normalizarQuery(query.external_reference) || undefined,
+          merchantOrderId: normalizarQuery(query.merchant_order_id) || undefined,
+        }),
+      },
+    )
+    if (!res.ok) return null
+    const raw = (await res.json()) as Record<string, unknown>
+    return {
+      procesado: Boolean(raw.procesado ?? raw.Procesado),
+      pedidoId: (raw.pedidoId ?? raw.PedidoId) as string | null | undefined,
+      estadoPedido: (raw.estadoPedido ?? raw.EstadoPedido) as string | null | undefined,
+      mensaje: String(raw.mensaje ?? raw.Mensaje ?? ''),
+    }
+  } catch {
+    return null
+  }
+}
+
+export function useRetornoPagoMercadoPago(
+  slug: () => string,
+  opciones?: { onDespuesConfirmar?: () => void | Promise<void> },
+) {
   const route = useRoute()
   const router = useRouter()
   const retornoPago = ref<RetornoPagoMensaje | null>(null)
+  const confirmandoPago = ref(false)
 
   onMounted(() => {
-    const msg = mensajeDesdeQueryPago(route.query)
+    const query = { ...route.query }
+    const msg = mensajeDesdeQueryPago(query)
     if (!msg) return
 
     retornoPago.value = msg
     const s = slug().trim()
     if (!s) return
 
-    void router.replace({ name: 'tienda', params: { slug: s }, query: {} })
+    void (async () => {
+      if (msg.tipo === 'ok' || msg.tipo === 'pending' || queryTieneIdsMp(query)) {
+        confirmandoPago.value = true
+        const resultado = await confirmarPagoEnApi(s, query)
+        confirmandoPago.value = false
+
+        if (resultado?.procesado && msg.tipo === 'ok') {
+          retornoPago.value = {
+            tipo: 'ok',
+            texto:
+              resultado.mensaje ||
+              '¡Pago confirmado! El stock de la tienda ya está actualizado.',
+          }
+          await opciones?.onDespuesConfirmar?.()
+        } else if (resultado && !resultado.procesado && msg.tipo === 'ok') {
+          retornoPago.value = {
+            tipo: 'pending',
+            texto:
+              resultado.mensaje ||
+              'Pago recibido en Mercado Pago; el pedido se confirmará en breve.',
+          }
+        } else if (resultado?.procesado && msg.tipo === 'error') {
+          await opciones?.onDespuesConfirmar?.()
+        }
+      }
+
+      await router.replace({ name: 'tienda', params: { slug: s }, query: {} })
+    })()
   })
 
-  return { retornoPago }
+  return { retornoPago, confirmandoPago }
 }
