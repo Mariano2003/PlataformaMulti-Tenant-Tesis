@@ -15,8 +15,17 @@ public static class FrontAppUrls
 
     public static string Construir(string appBase, string rutaYQuery)
     {
-        var baseNorm = appBase.Trim().TrimEnd('/');
+        var baseNorm = NormalizarBase(appBase);
         var ruta = rutaYQuery.StartsWith('/') ? rutaYQuery : "/" + rutaYQuery;
         return $"{baseNorm}{PrefijoRutaSpa(baseNorm)}{ruta}";
+    }
+
+    /// <summary>Quita <c>/#</c> final por si la URL del front se copió con hash.</summary>
+    public static string NormalizarBase(string appBase)
+    {
+        var baseNorm = appBase.Trim().TrimEnd('/');
+        if (baseNorm.EndsWith("/#", StringComparison.OrdinalIgnoreCase))
+            baseNorm = baseNorm[..^2];
+        return baseNorm;
     }
 }
