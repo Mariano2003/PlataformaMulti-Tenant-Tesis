@@ -82,7 +82,7 @@ public sealed class PasswordRecoveryService : IPasswordRecoveryService
         await _tokens.InsertOneAsync(entidad, cancellationToken: ct);
 
         var baseUrl = _emailOpt.PublicAppBaseUrl.TrimEnd('/');
-        var link = $"{baseUrl}/restablecer-clave?token={plainHex}";
+        var link = FrontAppUrls.Construir(baseUrl, $"/restablecer-clave?token={plainHex}");
         var cuerpo =
             $"Hola {usuario.Nombre},\n\n" +
             $"Para elegir una nueva contraseña en MarketSaaS abrí este enlace (caduca en {minutos} minutos):\n{link}\n\n" +

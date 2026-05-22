@@ -76,7 +76,7 @@ export function useRetornoPagoMercadoPago(slug: () => string) {
     const s = slug().trim()
     if (!s) return
 
-    void router.replace({ name: 'tienda', params: { slug: s } })
+    void router.replace({ name: 'tienda', params: { slug: s }, query: {} })
   })
 
   return { retornoPago }
