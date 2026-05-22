@@ -11,7 +11,10 @@ import { useCarritoStore } from '../stores/carrito'
 
 const route = useRoute()
 const slug = computed(() => (route.params.slug as string) || '')
-const { retornoPago } = useRetornoPagoMercadoPago(() => slug.value)
+const { negocio, productos, loading, error, cargar } = useTiendaCatalogo(slug)
+const { retornoPago, confirmandoPago } = useRetornoPagoMercadoPago(() => slug.value, {
+  onDespuesConfirmar: () => cargar(),
+})
 
 const carrito = useCarritoStore()
 watch(
@@ -22,7 +25,6 @@ watch(
   { immediate: true },
 )
 
-const { negocio, productos, loading, error } = useTiendaCatalogo(slug)
 
 const sinProductos = computed(
   () => !loading.value && !error.value && productos.value.length === 0,
@@ -59,6 +61,7 @@ watch(
       role="status"
     >
       {{ retornoPago.texto }}
+      <span v-if="confirmandoPago"> (sincronizando…)</span>
     </p>
 
     <TiendaEstado

@@ -16,6 +16,7 @@ public sealed class PasswordRecoveryService : IPasswordRecoveryService
     private readonly IMongoCollection<Usuario> _usuarios;
     private readonly IEmailSender _email;
     private readonly EmailOptions _emailOpt;
+    private readonly MercadoPagoOptions _mpOpt;
     private readonly IAuthService _auth;
     private readonly IHostEnvironment _hostEnvironment;
     private readonly ILogger<PasswordRecoveryService> _log;
@@ -24,6 +25,7 @@ public sealed class PasswordRecoveryService : IPasswordRecoveryService
         IMongoDatabase db,
         IEmailSender email,
         IOptions<EmailOptions> emailOpt,
+        IOptions<MercadoPagoOptions> mpOpt,
         IAuthService auth,
         IHostEnvironment hostEnvironment,
         ILogger<PasswordRecoveryService> log)
@@ -32,6 +34,7 @@ public sealed class PasswordRecoveryService : IPasswordRecoveryService
         _usuarios = db.GetCollection<Usuario>(CollectionNames.Usuarios);
         _email = email;
         _emailOpt = emailOpt.Value;
+        _mpOpt = mpOpt.Value;
         _auth = auth;
         _hostEnvironment = hostEnvironment;
         _log = log;
@@ -81,7 +84,7 @@ public sealed class PasswordRecoveryService : IPasswordRecoveryService
 
         await _tokens.InsertOneAsync(entidad, cancellationToken: ct);
 
-        var baseUrl = _emailOpt.PublicAppBaseUrl.TrimEnd('/');
+        var baseUrl = ObtenerUrlBaseFront();
         var link = FrontAppUrls.Construir(baseUrl, $"/restablecer-clave?token={plainHex}");
         var cuerpo =
             $"Hola {usuario.Nombre},\n\n" +
@@ -155,6 +158,16 @@ public sealed class PasswordRecoveryService : IPasswordRecoveryService
         {
             await _tokens.DeleteManyAsync(t => t.EmailNormalizado == doc.EmailNormalizado, ct);
         }
+    }
+
+    private string ObtenerUrlBaseFront()
+    {
+        var app = _emailOpt.PublicAppBaseUrl?.Trim().TrimEnd('/');
+        if (string.IsNullOrEmpty(app))
+            app = _mpOpt.PublicAppBaseUrl?.Trim().TrimEnd('/');
+        if (string.IsNullOrEmpty(app))
+            app = "http://localhost:5173";
+        return app;
     }
 
     private static string HashTokenBytes(byte[] tokenBytes) =>

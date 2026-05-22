@@ -38,6 +38,7 @@ builder.Services.AddSingleton<IPedidoService, PedidoService>();
 builder.Services.AddSingleton<IAnalyticsService, AnalyticsService>();
 builder.Services.AddSingleton<IChatRoomService, ChatRoomService>();
 builder.Services.AddSingleton<IMercadoPagoPreferenciaService, MercadoPagoPreferenciaService>();
+builder.Services.AddSingleton<IMercadoPagoConfirmacionService, MercadoPagoConfirmacionService>();
 builder.Services.AddSingleton<IAuthService, AuthService>();
 builder.Services.AddSingleton<IEmailSender, MailKitEmailSender>();
 builder.Services.AddSingleton<IPasswordRecoveryService, PasswordRecoveryService>();

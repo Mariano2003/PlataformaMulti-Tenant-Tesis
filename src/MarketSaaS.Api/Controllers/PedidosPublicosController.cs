@@ -13,15 +13,18 @@ public class PedidosPublicosController : ControllerBase
     private readonly INegocioService _negocios;
     private readonly IPedidoService _pedidos;
     private readonly IMercadoPagoPreferenciaService _mercadoPagoPreferencias;
+    private readonly IMercadoPagoConfirmacionService _mercadoPagoConfirmacion;
 
     public PedidosPublicosController(
         INegocioService negocios,
         IPedidoService pedidos,
-        IMercadoPagoPreferenciaService mercadoPagoPreferencias)
+        IMercadoPagoPreferenciaService mercadoPagoPreferencias,
+        IMercadoPagoConfirmacionService mercadoPagoConfirmacion)
     {
         _negocios = negocios;
         _pedidos = pedidos;
         _mercadoPagoPreferencias = mercadoPagoPreferencias;
+        _mercadoPagoConfirmacion = mercadoPagoConfirmacion;
     }
 
     /// <summary>
@@ -46,6 +49,35 @@ public class PedidosPublicosController : ControllerBase
         catch (ArgumentException ex)
         {
             return BadRequest(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Tras volver de Checkout Pro: consulta el pago en MP y confirma el pedido (idempotente).
+    /// Respaldo si el webhook no llegó (p. ej. Render, firma incorrecta).
+    /// </summary>
+    [HttpPost("mercadopago/confirmar-retorno")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ConfirmarPagoRetornoResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ConfirmarPagoRetornoResponse>> ConfirmarRetornoMercadoPago(
+        string slug,
+        [FromBody] ConfirmarPagoRetornoRequest solicitud,
+        CancellationToken ct)
+    {
+        try
+        {
+            var dto = await _mercadoPagoConfirmacion.ConfirmarRetornoCheckoutAsync(slug, solicitud, ct);
+            return Ok(dto);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("no existe", StringComparison.OrdinalIgnoreCase))
+        {
+            return NotFound(new { error = ex.Message });
         }
         catch (InvalidOperationException ex)
         {

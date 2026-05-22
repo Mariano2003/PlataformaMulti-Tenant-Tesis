@@ -86,7 +86,7 @@ Con la API en **`http://localhost:5037`**, Vite proxifica `/api` hacia el backen
 
 Roles: `SuperAdmin`, `AdminTienda`, `Cliente`. Políticas en `Authorization/Policies.cs`; aislamiento por slug en `[RequireMatchingNegocio]`.
 
-**Pedidos y pago:** flujo **PendientePago** → preferencia Mercado Pago → **webhook** aprueba → descuento de stock atómico. Estado legacy **Confirmado** puede existir en datos viejos.
+**Pedidos y pago:** flujo **PendientePago** → preferencia Mercado Pago → **webhook** aprueba → descuento de stock. Al volver del checkout, el front también llama `POST .../mercadopago/confirmar-retorno` (respaldo si el webhook no llegó a Render). Estado legacy **Confirmado** puede existir en datos viejos.
 
 ## Git + GitHub
 
@@ -104,6 +104,25 @@ git push -u origin main
 ```
 
 3. Convención de commits: mensajes claros en español o inglés, un cambio lógico por commit cuando puedas.
+
+## Olvidé mi contraseña (correo)
+
+Funciona para **clientes** y **dueños** (cualquier usuario en la base). En Render (API), agregá:
+
+| Variable | Valor |
+|----------|--------|
+| `Email__Enabled` | `true` |
+| `Email__SmtpHost` | `smtp.gmail.com` |
+| `Email__SmtpPort` | `587` |
+| `Email__SmtpUser` | tu Gmail |
+| `Email__SmtpPassword` | [contraseña de aplicación](https://myaccount.google.com/apppasswords) de Google (16 caracteres), **no** la clave normal |
+| `Email__FromEmail` | mismo Gmail que `SmtpUser` |
+| `Email__FromName` | `MarketSaaS` (o el nombre que quieras) |
+| `Email__PublicAppBaseUrl` | URL del **front** (opcional si ya tenés `MercadoPago__PublicAppBaseUrl` con la misma URL) |
+
+En local: copiá `appsettings.Development.example.json` → `appsettings.Development.json`, completá `Email` y reiniciá la API. Si SMTP falla en Development, el enlace igual aparece en la consola (`DEV — Enlace…`).
+
+El mail lleva un link a `/#/restablecer-clave?token=...` en producción (misma URL pública del front).
 
 ## Deploy en Render (pago Mercado Pago → vuelta a la tienda)
 
