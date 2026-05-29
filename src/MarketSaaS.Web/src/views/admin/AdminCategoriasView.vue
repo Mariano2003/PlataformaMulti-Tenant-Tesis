@@ -222,7 +222,6 @@ async function eliminar(c: CategoriaAdminDto) {
 
 function salir() {
   auth.cerrarSesion()
-  void router.push({ name: 'admin-login', params: { slug: slug.value } })
 }
 
 const msgEsError = computed(() => {

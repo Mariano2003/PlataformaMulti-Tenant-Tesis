@@ -124,7 +124,6 @@ async function guardar() {
 
 function salir() {
   auth.cerrarSesion()
-  void router.push({ name: 'admin-login', params: { slug: slug.value } })
 }
 </script>
 

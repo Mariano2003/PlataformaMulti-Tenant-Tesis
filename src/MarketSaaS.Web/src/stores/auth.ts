@@ -53,6 +53,9 @@ export const useAuthStore = defineStore('auth', () => {
   function cerrarSesion() {
     token.value = null
     usuario.value = null
+    void import('../router').then(({ router }) => {
+      void router.replace({ name: 'portal-login' })
+    })
   }
 
   hidratar()
