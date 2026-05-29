@@ -59,7 +59,6 @@ async function enviar() {
 
 function salir() {
   auth.cerrarSesion()
-  void router.push({ name: 'admin-login', params: { slug: slug.value } })
 }
 
 watch(

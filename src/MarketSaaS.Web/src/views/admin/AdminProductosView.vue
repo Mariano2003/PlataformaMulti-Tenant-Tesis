@@ -379,7 +379,6 @@ async function crearProducto() {
 
 function salir() {
   auth.cerrarSesion()
-  void router.push({ name: 'admin-login', params: { slug: slug.value } })
 }
 
 /** Solo estos se muestran como éxito (verde); el resto va en rojo. */
