@@ -47,10 +47,7 @@ public sealed class PasswordRecoveryService : IPasswordRecoveryService
         if (usuario is null)
             return;
 
-        var smtpListo = _emailOpt.Enabled &&
-            !string.IsNullOrWhiteSpace(_emailOpt.FromEmail) &&
-            !string.IsNullOrWhiteSpace(_emailOpt.SmtpUser) &&
-            !string.IsNullOrWhiteSpace(_emailOpt.SmtpPassword);
+        var smtpListo = EmailEstaConfigurado(_emailOpt);
 
         if (!smtpListo && !_hostEnvironment.IsDevelopment())
         {
@@ -160,6 +157,15 @@ public sealed class PasswordRecoveryService : IPasswordRecoveryService
         {
             await _tokens.DeleteManyAsync(t => t.EmailNormalizado == doc.EmailNormalizado, ct);
         }
+    }
+
+    private static bool EmailEstaConfigurado(EmailOptions o)
+    {
+        if (!o.Enabled || string.IsNullOrWhiteSpace(o.FromEmail))
+            return false;
+        if (!string.IsNullOrWhiteSpace(o.ResendApiKey))
+            return true;
+        return !string.IsNullOrWhiteSpace(o.SmtpUser) && !string.IsNullOrWhiteSpace(o.SmtpPassword);
     }
 
     private string ObtenerUrlBaseFront()
