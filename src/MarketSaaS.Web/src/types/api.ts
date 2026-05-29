@@ -127,6 +127,18 @@ export interface CategoriaAdminDto {
   creadoEn: string
 }
 
+/** `GET /api/mis-pedidos` */
+export interface PedidoClienteListItemDto {
+  id: string
+  negocioId: string
+  negocioSlug: string
+  negocioNombre: string
+  estado: string
+  total: number
+  creadoEn: string
+  lineas: PedidoLineaListDto[]
+}
+
 export interface PedidoListDto {
   id: string
   negocioId: string

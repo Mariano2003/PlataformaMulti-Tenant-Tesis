@@ -25,10 +25,14 @@ const enlacesNav = computed(() => {
     return [
       { label: 'Plataforma', to: { name: 'superadmin-plataforma' as const } },
       { label: 'Tiendas', to: { name: 'tiendas' as const } },
+      { label: 'Mis pedidos', to: { name: 'mis-pedidos' as const } },
     ]
   }
   if (rol === 'Cliente') {
-    return [{ label: 'Mis tiendas', to: { name: 'tiendas' as const } }]
+    return [
+      { label: 'Mis tiendas', to: { name: 'tiendas' as const } },
+      { label: 'Mis pedidos', to: { name: 'mis-pedidos' as const } },
+    ]
   }
   return []
 })

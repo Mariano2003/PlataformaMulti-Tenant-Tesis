@@ -83,6 +83,7 @@ Con la API en **`http://localhost:5037`**, Vite proxifica `/api` hacia el backen
 | POST | `/api/negocios/{slug}/pedidos/{pedidoId}/mercadopago/preferencia` | Preferencia Checkout Pro (público) |
 | GET | `/api/negocios/{slug}/admin/pedidos` | Listar pedidos del negocio (`?limite=`, máx. 500) — **JWT** + tenant |
 | GET | `/api/negocios/{slug}/admin/pedidos/{id}` | Detalle de pedido — **JWT** + tenant |
+| GET | `/api/mis-pedidos` | Pedidos del usuario logueado (por email del JWT), **JWT** requerido |
 
 Roles: `SuperAdmin`, `AdminTienda`, `Cliente`. Políticas en `Authorization/Policies.cs`; aislamiento por slug en `[RequireMatchingNegocio]`.
 

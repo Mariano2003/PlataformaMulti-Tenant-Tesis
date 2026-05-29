@@ -121,6 +121,10 @@ Content-Type: application/json
 GET {{host}}/api/auth/me
 Authorization: Bearer TOKEN_AQUI
 
+### Mis pedidos (Cliente o SuperAdmin — email del JWT)
+GET {{host}}/api/mis-pedidos
+Authorization: Bearer TOKEN_AQUI
+
 ### Categorías públicas
 GET {{host}}/api/negocios/mi-tienda-demo/categorias
 
