@@ -1,11 +1,20 @@
 namespace MarketSaaS.Api.Options;
 
-/// <summary>SMTP (ej. Gmail con contraseña de aplicación). Si <see cref="Enabled"/> es false, no se envían mails.</summary>
+/// <summary>
+/// Correo: SMTP (local) o Resend HTTP API (recomendado en Render gratis: bloquea puertos 587/465).
+/// Si <see cref="ResendApiKey"/> tiene valor, se usa Resend en lugar de SMTP.
+/// </summary>
 public sealed class EmailOptions
 {
     public const string SectionName = "Email";
 
     public bool Enabled { get; set; }
+
+    /// <summary>API key de <a href="https://resend.com">Resend</a> (re_...). Prioridad sobre SMTP.</summary>
+    public string ResendApiKey { get; set; } = "";
+
+    /// <summary>Remitente Resend, ej. <c>MarketSaaS &lt;onboarding@resend.dev&gt;</c> o tu email verificado en Resend.</summary>
+    public string ResendFrom { get; set; } = "";
 
     public string SmtpHost { get; set; } = "smtp.gmail.com";
 

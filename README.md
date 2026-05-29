@@ -107,22 +107,39 @@ git push -u origin main
 
 ## Olvidé mi contraseña (correo)
 
-Funciona para **clientes** y **dueños** (cualquier usuario en la base). En Render (API), agregá:
+Funciona para **clientes** y **dueños** (cualquier usuario en la base).
+
+### Render gratis: Gmail SMTP **no llega** (no es por keys mal puestas)
+
+Render **bloquea** el puerto 587/465. Aunque `Email__SmtpPassword` sea correcta, el mail **no sale**. En logs de la API verás timeout o error SMTP.
+
+**Solución recomendada (gratis): [Resend](https://resend.com)** — API por HTTPS (como Mercado Pago).
+
+1. Creá cuenta en Resend → API Keys → copiá `re_...`
+2. En Resend, **verificá** el email desde el que querés mandar (o usá el dominio de prueba según su panel)
+3. En Render (API):
 
 | Variable | Valor |
 |----------|--------|
 | `Email__Enabled` | `true` |
-| `Email__SmtpHost` | `smtp.gmail.com` |
-| `Email__SmtpPort` | `587` |
-| `Email__SmtpUser` | tu Gmail |
-| `Email__SmtpPassword` | [contraseña de aplicación](https://myaccount.google.com/apppasswords) de Google (16 caracteres), **no** la clave normal |
-| `Email__FromEmail` | mismo Gmail que `SmtpUser` |
-| `Email__FromName` | `MarketSaaS` (o el nombre que quieras) |
-| `Email__PublicAppBaseUrl` | URL del **front** (opcional si ya tenés `MercadoPago__PublicAppBaseUrl` con la misma URL) |
+| `Email__ResendApiKey` | `re_xxxxxxxx` |
+| `Email__FromEmail` | email **verificado** en Resend |
+| `Email__FromName` | `MarketSaaS` |
+| `Email__ResendFrom` | opcional, ej. `MarketSaaS <tu@email.com>` |
 
-En local: copiá `appsettings.Development.example.json` → `appsettings.Development.json`, completá `Email` y reiniciá la API. Si SMTP falla en Development, el enlace igual aparece en la consola (`DEV — Enlace…`).
+No hace falta `Email__SmtpUser` ni `Email__SmtpPassword` si usás Resend.
 
-El mail lleva un link a `/#/restablecer-clave/{token}` en producción (misma URL pública del front, **sin** `/#` al final de la variable de URL).
+### Solo en tu PC (desarrollo): Gmail SMTP
+
+| Variable | Valor |
+|----------|--------|
+| `Email__Enabled` | `true` |
+| `Email__SmtpUser` / `FromEmail` | tu Gmail |
+| `Email__SmtpPassword` | [contraseña de aplicación](https://myaccount.google.com/apppasswords) |
+
+En local, si SMTP falla, el enlace aparece en la consola de la API (`DEV — Enlace…`).
+
+El mail lleva un link a `/#/restablecer-clave/{token}` (URL del front **sin** `/#` al final en la variable de entorno).
 
 ## Deploy en Render (pago Mercado Pago → vuelta a la tienda)
 
