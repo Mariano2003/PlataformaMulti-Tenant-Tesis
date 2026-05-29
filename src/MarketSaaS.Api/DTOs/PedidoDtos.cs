@@ -36,6 +36,19 @@ public class PedidoLineaResponse
     public decimal Subtotal { get; set; }
 }
 
+/// <summary>Pedido del cliente autenticado (listado en <c>GET /api/mis-pedidos</c>).</summary>
+public class PedidoClienteListItemResponse
+{
+    public string Id { get; set; } = null!;
+    public string NegocioId { get; set; } = null!;
+    public string NegocioSlug { get; set; } = null!;
+    public string NegocioNombre { get; set; } = null!;
+    public string Estado { get; set; } = null!;
+    public decimal Total { get; set; }
+    public DateTime CreadoEn { get; set; }
+    public IReadOnlyList<PedidoLineaResponse> Lineas { get; set; } = Array.Empty<PedidoLineaResponse>();
+}
+
 public class PedidoResponse
 {
     public string Id { get; set; } = null!;

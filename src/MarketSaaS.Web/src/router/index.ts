@@ -8,6 +8,7 @@ import PortalRegistroView from '../views/PortalRegistroView.vue'
 import RecuperarClaveView from '../views/RecuperarClaveView.vue'
 import RestablecerClaveView from '../views/RestablecerClaveView.vue'
 import SeleccionTiendasView from '../views/SeleccionTiendasView.vue'
+import MisPedidosView from '../views/MisPedidosView.vue'
 import SuperAdminPlataformaView from '../views/SuperAdminPlataformaView.vue'
 import AdminLoginView from '../views/admin/AdminLoginView.vue'
 import AdminPedidosView from '../views/admin/AdminPedidosView.vue'
@@ -70,6 +71,12 @@ export const router = createRouter({
       path: '/tiendas',
       name: 'tiendas',
       component: SeleccionTiendasView,
+      meta: { requiresSesion: true, rolesPermitidos: ['Cliente', 'SuperAdmin'] },
+    },
+    {
+      path: '/mis-pedidos',
+      name: 'mis-pedidos',
+      component: MisPedidosView,
       meta: { requiresSesion: true, rolesPermitidos: ['Cliente', 'SuperAdmin'] },
     },
     {

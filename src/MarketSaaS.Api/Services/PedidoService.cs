@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using MarketSaaS.Api.DTOs;
 using MarketSaaS.Api.Infrastructure;
 using MarketSaaS.Api.Models;
@@ -225,6 +226,24 @@ public sealed class PedidoService : IPedidoService
         return await _pedidos
             .Find(pedido => pedido.NegocioId == negocioId)
             .SortByDescending(pedido => pedido.CreadoEn)
+            .Limit(cantidadMaxima)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<Pedido>> ListarPorClienteEmailAsync(string clienteEmail, int limite, CancellationToken ct = default)
+    {
+        var emailNorm = clienteEmail.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(emailNorm))
+            return Array.Empty<Pedido>();
+
+        var cantidadMaxima = Math.Clamp(limite, 1, 200);
+        var filtro = Builders<Pedido>.Filter.Regex(
+            p => p.ClienteEmail,
+            new BsonRegularExpression($"^{Regex.Escape(emailNorm)}$", "i"));
+
+        return await _pedidos
+            .Find(filtro)
+            .SortByDescending(p => p.CreadoEn)
             .Limit(cantidadMaxima)
             .ToListAsync(ct);
     }

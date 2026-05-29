@@ -94,6 +94,10 @@ public sealed class MongoIndexInitializer : IHostedService
             new CreateIndexModel<Pedido>(
                 Builders<Pedido>.IndexKeys.Ascending(p => p.NegocioId).Descending(p => p.CreadoEn)),
             cancellationToken: cancellationToken);
+        await pedidos.Indexes.CreateOneAsync(
+            new CreateIndexModel<Pedido>(
+                Builders<Pedido>.IndexKeys.Ascending(p => p.ClienteEmail).Descending(p => p.CreadoEn)),
+            cancellationToken: cancellationToken);
 
         if (!nombresColecciones.Contains(CollectionNames.ChatMensajes))
             await db.CreateCollectionAsync(CollectionNames.ChatMensajes, cancellationToken: cancellationToken);
