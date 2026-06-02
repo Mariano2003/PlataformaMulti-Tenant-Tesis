@@ -15,11 +15,13 @@ public class NegociosController : ControllerBase
 {
     private readonly INegocioService _negocios;
     private readonly IAuthService _auth;
+    private readonly IMercadoPagoOAuthService _mpOAuth;
 
-    public NegociosController(INegocioService negocios, IAuthService auth)
+    public NegociosController(INegocioService negocios, IAuthService auth, IMercadoPagoOAuthService mpOAuth)
     {
         _negocios = negocios;
         _auth = auth;
+        _mpOAuth = mpOAuth;
     }
 
     /// <summary>Listado público de negocios activos (selector de tienda).</summary>
@@ -69,6 +71,10 @@ public class NegociosController : ControllerBase
             Nombre = negocio.Nombre,
             Activo = negocio.Activo,
             MercadoPagoTiendaConfigurado = !string.IsNullOrWhiteSpace(negocio.MercadoPagoAccessToken),
+            MercadoPagoConectadoOAuth = !string.IsNullOrWhiteSpace(negocio.MercadoPagoRefreshToken),
+            MercadoPagoOAuthDisponible = _mpOAuth.ConnectHabilitado,
+            MercadoPagoUserId = negocio.MercadoPagoUserId,
+            MercadoPagoConectadoEn = negocio.MercadoPagoConectadoEn,
         });
     }
 

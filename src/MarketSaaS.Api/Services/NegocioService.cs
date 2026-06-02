@@ -73,6 +73,14 @@ public sealed class NegocioService : INegocioService
         {
             var tok = string.IsNullOrWhiteSpace(dto.AccessToken) ? null : dto.AccessToken.Trim();
             updates.Add(Builders<Negocio>.Update.Set(n => n.MercadoPagoAccessToken, tok));
+            if (tok is null)
+            {
+                updates.Add(Builders<Negocio>.Update
+                    .Unset(n => n.MercadoPagoRefreshToken)
+                    .Unset(n => n.MercadoPagoUserId)
+                    .Unset(n => n.MercadoPagoTokenExpiraEn)
+                    .Unset(n => n.MercadoPagoConectadoEn));
+            }
         }
 
         if (dto.WebhookSecret is not null)
@@ -88,6 +96,33 @@ public sealed class NegocioService : INegocioService
             n => n.Id == negocioId,
             Builders<Negocio>.Update.Combine(updates),
             cancellationToken: ct);
+    }
+
+    public async Task GuardarCredencialesOAuthAsync(
+        string negocioId,
+        string accessToken,
+        string? refreshToken,
+        string? userId,
+        int? expiresInSeconds,
+        CancellationToken ct = default)
+    {
+        var ahora = DateTime.UtcNow;
+        DateTime? expira = expiresInSeconds is > 0
+            ? ahora.AddSeconds(expiresInSeconds.Value)
+            : null;
+
+        var update = Builders<Negocio>.Update
+            .Set(n => n.MercadoPagoAccessToken, accessToken.Trim())
+            .Set(n => n.MercadoPagoConectadoEn, ahora);
+
+        if (!string.IsNullOrWhiteSpace(refreshToken))
+            update = update.Set(n => n.MercadoPagoRefreshToken, refreshToken.Trim());
+        if (!string.IsNullOrWhiteSpace(userId))
+            update = update.Set(n => n.MercadoPagoUserId, userId.Trim());
+        if (expira is not null)
+            update = update.Set(n => n.MercadoPagoTokenExpiraEn, expira);
+
+        await _negocios.UpdateOneAsync(n => n.Id == negocioId, update, cancellationToken: ct);
     }
 
     private static string NormalizarSlug(string slug) => slug.Trim().ToLowerInvariant();

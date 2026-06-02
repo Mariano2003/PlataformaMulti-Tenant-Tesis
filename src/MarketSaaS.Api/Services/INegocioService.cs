@@ -14,4 +14,12 @@ public interface INegocioService
     Task EliminarPorIdAsync(string id, CancellationToken ct = default);
 
     Task ActualizarMercadoPagoAsync(string negocioId, ActualizarMercadoPagoNegocioRequest dto, CancellationToken ct = default);
+
+    Task GuardarCredencialesOAuthAsync(
+        string negocioId,
+        string accessToken,
+        string? refreshToken,
+        string? userId,
+        int? expiresInSeconds,
+        CancellationToken ct = default);
 }

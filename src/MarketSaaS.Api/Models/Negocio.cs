@@ -31,6 +31,20 @@ public class Negocio
     [BsonElement("mercadoPagoAccessToken")]
     public string? MercadoPagoAccessToken { get; set; }
 
+    /// <summary>Refresh token OAuth Connect; permite renovar el access token sin reautorizar.</summary>
+    [BsonElement("mercadoPagoRefreshToken")]
+    public string? MercadoPagoRefreshToken { get; set; }
+
+    /// <summary>Collector / user id de la cuenta MP vinculada (OAuth).</summary>
+    [BsonElement("mercadoPagoUserId")]
+    public string? MercadoPagoUserId { get; set; }
+
+    [BsonElement("mercadoPagoTokenExpiraEn")]
+    public DateTime? MercadoPagoTokenExpiraEn { get; set; }
+
+    [BsonElement("mercadoPagoConectadoEn")]
+    public DateTime? MercadoPagoConectadoEn { get; set; }
+
     /// <summary>Clave secreta del webhook configurada en el panel MP de esa cuenta (opcional; si hay valor se valida la firma con ella).</summary>
     [BsonElement("mercadoPagoWebhookSecret")]
     public string? MercadoPagoWebhookSecret { get; set; }

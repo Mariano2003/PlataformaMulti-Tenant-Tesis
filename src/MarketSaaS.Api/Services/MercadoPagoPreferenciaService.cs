@@ -15,6 +15,7 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
 {
     private readonly INegocioService _negocios;
     private readonly IPedidoService _pedidos;
+    private readonly IMercadoPagoAccessTokenProvider _accessTokens;
     private readonly MercadoPagoOptions _opciones;
     private readonly EmailOptions _email;
     private readonly ILogger<MercadoPagoPreferenciaService> _log;
@@ -22,12 +23,14 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
     public MercadoPagoPreferenciaService(
         INegocioService negocios,
         IPedidoService pedidos,
+        IMercadoPagoAccessTokenProvider accessTokens,
         IOptions<MercadoPagoOptions> opciones,
         IOptions<EmailOptions> email,
         ILogger<MercadoPagoPreferenciaService> log)
     {
         _negocios = negocios;
         _pedidos = pedidos;
+        _accessTokens = accessTokens;
         _opciones = opciones.Value;
         _email = email.Value;
         _log = log;
@@ -41,13 +44,11 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
         var negocio = await _negocios.ObtenerPorSlugAsync(slugNegocio, ct)
             ?? throw new InvalidOperationException("El negocio no existe.");
 
-        var accessToken = !string.IsNullOrWhiteSpace(negocio.MercadoPagoAccessToken)
-            ? negocio.MercadoPagoAccessToken.Trim()
-            : _opciones.AccessToken?.Trim();
+        var accessToken = await _accessTokens.ObtenerParaNegocioAsync(negocio, ct);
 
         if (string.IsNullOrWhiteSpace(accessToken))
             throw new InvalidOperationException(
-                "Mercado Pago: configurá el Access Token en el panel de la tienda (admin) o MercadoPago:AccessToken en la API.");
+                "Mercado Pago: conectá tu cuenta en el panel de la tienda (OAuth o token manual) o configurá MercadoPago:AccessToken en la API.");
 
         var pedido = await _pedidos.ObtenerPorIdYNegocioAsync(pedidoId, negocio.Id, ct)
             ?? throw new InvalidOperationException("El pedido no existe en esta tienda.");

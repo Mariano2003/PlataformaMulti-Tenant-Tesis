@@ -28,17 +28,20 @@ public sealed class MercadoPagoWebhookController : ControllerBase
 
     private readonly IPedidoService _pedidos;
     private readonly INegocioService _negocios;
+    private readonly IMercadoPagoAccessTokenProvider _accessTokens;
     private readonly MercadoPagoOptions _opciones;
     private readonly ILogger<MercadoPagoWebhookController> _log;
 
     public MercadoPagoWebhookController(
         IPedidoService pedidos,
         INegocioService negocios,
+        IMercadoPagoAccessTokenProvider accessTokens,
         IOptions<MercadoPagoOptions> opciones,
         ILogger<MercadoPagoWebhookController> log)
     {
         _pedidos = pedidos;
         _negocios = negocios;
+        _accessTokens = accessTokens;
         _opciones = opciones.Value;
         _log = log;
     }
@@ -62,8 +65,9 @@ public sealed class MercadoPagoWebhookController : ControllerBase
             var neg = await _negocios.ObtenerPorIdAsync(negocioId, ct);
             if (neg != null)
             {
-                if (!string.IsNullOrWhiteSpace(neg.MercadoPagoAccessToken))
-                    accessToken = neg.MercadoPagoAccessToken.Trim();
+                var tokenTienda = await _accessTokens.ObtenerParaNegocioAsync(neg, ct);
+                if (!string.IsNullOrWhiteSpace(tokenTienda))
+                    accessToken = tokenTienda;
                 if (!string.IsNullOrWhiteSpace(neg.MercadoPagoWebhookSecret))
                     webhookSecret = neg.MercadoPagoWebhookSecret.Trim();
             }

@@ -81,6 +81,9 @@ Con la API en **`http://localhost:5037`**, Vite proxifica `/api` hacia el backen
 | GET/POST/PUT/DELETE | `/api/negocios/{slug}/admin/productos` | CRUD productos (precio, stock, `atributos` opcional) — **JWT** + tenant |
 | POST | `/api/negocios/{slug}/pedidos` | Crear pedido **PendientePago**: valida stock y totales; el stock se descuenta al aprobar el pago (webhook MP) |
 | POST | `/api/negocios/{slug}/pedidos/{pedidoId}/mercadopago/preferencia` | Preferencia Checkout Pro (público) |
+| POST | `/api/negocios/{slug}/admin/mercadopago/oauth/iniciar` | Inicia OAuth Connect → `{ authorizationUrl }` — **JWT** + tenant |
+| GET | `/api/mercadopago/oauth/callback` | Callback público de MP (intercambia `code` y redirige al admin) |
+| PUT | `/api/negocios/{slug}/admin/mercadopago` | Token/secreto webhook manual por tienda — **JWT** + tenant |
 | GET | `/api/negocios/{slug}/admin/pedidos` | Listar pedidos del negocio (`?limite=`, máx. 500) — **JWT** + tenant |
 | GET | `/api/negocios/{slug}/admin/pedidos/{id}` | Detalle de pedido — **JWT** + tenant |
 | GET | `/api/mis-pedidos` | Pedidos del usuario logueado (por email del JWT), **JWT** requerido |
@@ -141,6 +144,41 @@ No hace falta `Email__SmtpUser` ni `Email__SmtpPassword` si usás Resend.
 En local, si SMTP falla, el enlace aparece en la consola de la API (`DEV — Enlace…`).
 
 El mail lleva un link a `/#/restablecer-clave/{token}` (URL del front **sin** `/#` al final en la variable de entorno).
+
+## Mercado Pago Connect (OAuth por tienda)
+
+Cada dueño puede vincular su cuenta desde **Admin → Mercado Pago → Conectar**, sin pegar tokens.
+
+### 1. App de la plataforma en Mercado Pago Developers
+
+1. [Tus integraciones](https://www.mercadopago.com.ar/developers/panel/app) → crear o usar la app **de la plataforma** (no la de cada vendedor).
+2. Activar **OAuth** / authorization code. Si usás PKCE, habilitarlo en la app y en la API (`MercadoPago__OAuthUsePkce=true`).
+3. **Redirect URI** (debe coincidir exacto):
+
+   `https://TU-API.onrender.com/api/mercadopago/oauth/callback`
+
+   En local con tunnel: `https://xxxx.ngrok-free.app/api/mercadopago/oauth/callback`
+
+### 2. Variables en la API (Render / secrets)
+
+| Variable | Descripción |
+|----------|-------------|
+| `MercadoPago__OAuthClientId` | APP_ID de la app de la plataforma |
+| `MercadoPago__OAuthClientSecret` | SECRET_KEY |
+| `MercadoPago__PublicApiBaseUrl` | URL pública de la API (para callback y webhooks) |
+| `MercadoPago__PublicAppBaseUrl` | URL del front (redirección tras OAuth) |
+| `MercadoPago__OAuthUsePkce` | `true` solo si lo activaste en el panel MP |
+
+Opcional: `MercadoPago__OAuthRedirectUri` si querés fijar la URI distinta a `{PublicApiBaseUrl}/api/mercadopago/oauth/callback`.
+
+### 3. Flujo
+
+1. Admin autenticado → `POST /api/negocios/{slug}/admin/mercadopago/oauth/iniciar` → `authorizationUrl`.
+2. El dueño autoriza en Mercado Pago.
+3. MP llama `GET /api/mercadopago/oauth/callback?code=...&state=...` → se guardan access + refresh token en el negocio.
+4. Redirección al panel: `/#/admin/{slug}/mercadopago?mp_oauth=ok`.
+
+Sigue existiendo el **pegado manual** del Access Token como respaldo. Los tokens OAuth se renuevan automáticamente antes de vencer (refresh token).
 
 ## Deploy en Render (pago Mercado Pago → vuelta a la tienda)
 

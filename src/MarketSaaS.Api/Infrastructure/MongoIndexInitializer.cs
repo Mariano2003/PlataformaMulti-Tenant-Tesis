@@ -118,6 +118,21 @@ public sealed class MongoIndexInitializer : IHostedService
                 new CreateIndexOptions { Unique = true }),
             cancellationToken: cancellationToken);
 
+        if (!nombresColecciones.Contains(CollectionNames.MercadoPagoOAuthStates))
+            await db.CreateCollectionAsync(CollectionNames.MercadoPagoOAuthStates, cancellationToken: cancellationToken);
+
+        var mpOAuth = db.GetCollection<MercadoPagoOAuthState>(CollectionNames.MercadoPagoOAuthStates);
+        await mpOAuth.Indexes.CreateOneAsync(
+            new CreateIndexModel<MercadoPagoOAuthState>(
+                Builders<MercadoPagoOAuthState>.IndexKeys.Ascending(s => s.State),
+                new CreateIndexOptions { Unique = true }),
+            cancellationToken: cancellationToken);
+        await mpOAuth.Indexes.CreateOneAsync(
+            new CreateIndexModel<MercadoPagoOAuthState>(
+                Builders<MercadoPagoOAuthState>.IndexKeys.Ascending(s => s.ExpiraEn),
+                new CreateIndexOptions { ExpireAfter = TimeSpan.Zero }),
+            cancellationToken: cancellationToken);
+
         _log.LogInformation("Índices MongoDB verificados/creados.");
     }
 

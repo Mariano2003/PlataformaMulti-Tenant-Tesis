@@ -31,4 +31,19 @@ public sealed class MercadoPagoOptions
     /// Vacío = no se valida <c>x-signature</c> (útil en local). Si tiene valor, las notificaciones sin firma válida reciben 401.
     /// </summary>
     public string WebhookSecret { get; set; } = "";
+
+    /// <summary>APP_ID de la aplicación **de la plataforma** en Mercado Pago Developers (OAuth Connect).</summary>
+    public string OAuthClientId { get; set; } = "";
+
+    /// <summary>SECRET_KEY de esa aplicación.</summary>
+    public string OAuthClientSecret { get; set; } = "";
+
+    /// <summary>
+    /// Redirect URI registrada en MP. Si está vacía: <c>{PublicApiBaseUrl}/api/mercadopago/oauth/callback</c>.
+    /// Debe coincidir exactamente con la URL en el panel de la app.
+    /// </summary>
+    public string? OAuthRedirectUri { get; set; }
+
+    /// <summary>Si true, se envía PKCE (<c>code_challenge</c> S256). Activá el mismo flujo en el panel MP.</summary>
+    public bool OAuthUsePkce { get; set; }
 }

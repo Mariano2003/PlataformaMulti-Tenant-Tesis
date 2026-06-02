@@ -63,6 +63,16 @@ public class NegocioContextoAdminResponse
 
     /// <summary>True si la tienda tiene Access Token propio de Mercado Pago (los cobros van a esa cuenta).</summary>
     public bool MercadoPagoTiendaConfigurado { get; set; }
+
+    /// <summary>True si la cuenta se vinculó con OAuth Connect (refresh token guardado).</summary>
+    public bool MercadoPagoConectadoOAuth { get; set; }
+
+    /// <summary>True si la plataforma tiene ClientId/Secret para ofrecer el botón Conectar.</summary>
+    public bool MercadoPagoOAuthDisponible { get; set; }
+
+    public string? MercadoPagoUserId { get; set; }
+
+    public DateTime? MercadoPagoConectadoEn { get; set; }
 }
 
 /// <summary>Actualización parcial: propiedades omitidas en JSON no modifican el valor guardado.</summary>
