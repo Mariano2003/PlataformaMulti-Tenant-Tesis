@@ -16,18 +16,18 @@ public sealed class MercadoPagoConfirmacionService : IMercadoPagoConfirmacionSer
 {
     private readonly INegocioService _negocios;
     private readonly IPedidoService _pedidos;
-    private readonly MercadoPagoOptions _opciones;
+    private readonly IMercadoPagoAccessTokenProvider _accessTokens;
     private readonly ILogger<MercadoPagoConfirmacionService> _log;
 
     public MercadoPagoConfirmacionService(
         INegocioService negocios,
         IPedidoService pedidos,
-        IOptions<MercadoPagoOptions> opciones,
+        IMercadoPagoAccessTokenProvider accessTokens,
         ILogger<MercadoPagoConfirmacionService> log)
     {
         _negocios = negocios;
         _pedidos = pedidos;
-        _opciones = opciones.Value;
+        _accessTokens = accessTokens;
         _log = log;
     }
 
@@ -39,9 +39,7 @@ public sealed class MercadoPagoConfirmacionService : IMercadoPagoConfirmacionSer
         var negocio = await _negocios.ObtenerPorSlugAsync(slugNegocio, ct)
             ?? throw new InvalidOperationException("El negocio no existe.");
 
-        var accessToken = !string.IsNullOrWhiteSpace(negocio.MercadoPagoAccessToken)
-            ? negocio.MercadoPagoAccessToken.Trim()
-            : _opciones.AccessToken?.Trim();
+        var accessToken = await _accessTokens.ObtenerParaNegocioAsync(negocio, ct);
 
         if (string.IsNullOrWhiteSpace(accessToken))
             throw new InvalidOperationException(

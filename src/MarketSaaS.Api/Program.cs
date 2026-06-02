@@ -39,6 +39,12 @@ builder.Services.AddSingleton<IAnalyticsService, AnalyticsService>();
 builder.Services.AddSingleton<IChatRoomService, ChatRoomService>();
 builder.Services.AddSingleton<IMercadoPagoPreferenciaService, MercadoPagoPreferenciaService>();
 builder.Services.AddSingleton<IMercadoPagoConfirmacionService, MercadoPagoConfirmacionService>();
+builder.Services.AddSingleton<MercadoPagoAccessTokenProvider>();
+builder.Services.AddSingleton<IMercadoPagoAccessTokenProvider>(sp =>
+    sp.GetRequiredService<MercadoPagoAccessTokenProvider>());
+builder.Services.AddSingleton<IMercadoPagoOAuthService, MercadoPagoOAuthService>();
+builder.Services.AddHttpClient(nameof(MercadoPagoOAuthService));
+builder.Services.AddHttpClient(nameof(MercadoPagoAccessTokenProvider));
 builder.Services.AddSingleton<IAuthService, AuthService>();
 builder.Services.AddHttpClient(nameof(ResendEmailSender));
 builder.Services.AddSingleton<MailKitEmailSender>();

@@ -18,11 +18,16 @@ interface ContextoAdmin {
   nombre: string
   activo: boolean
   mercadoPagoTiendaConfigurado?: boolean
+  mercadoPagoConectadoOAuth?: boolean
+  mercadoPagoOAuthDisponible?: boolean
+  mercadoPagoUserId?: string | null
+  mercadoPagoConectadoEn?: string | null
 }
 
 const contexto = ref<ContextoAdmin | null>(null)
 const cargando = ref(true)
 const guardando = ref(false)
+const conectando = ref(false)
 const error = ref<string | null>(null)
 const okMsg = ref<string | null>(null)
 
@@ -63,7 +68,64 @@ async function cargarContexto() {
   }
 }
 
-onMounted(() => void cargarContexto())
+function procesarRetornoOAuth() {
+  const oauth = route.query.mp_oauth
+  if (oauth === 'ok') {
+    okMsg.value = 'Cuenta de Mercado Pago vinculada correctamente.'
+    router.replace({ query: {} })
+  } else if (oauth === 'error') {
+    const msg = typeof route.query.mp_msg === 'string' ? route.query.mp_msg : 'No se pudo vincular la cuenta.'
+    error.value = msg
+    router.replace({ query: {} })
+  }
+}
+
+async function conectarMercadoPago() {
+  okMsg.value = null
+  error.value = null
+  const s = slug.value
+  if (!s) return
+  conectando.value = true
+  try {
+    const res = await authedFetch(
+      `/api/negocios/${encodeURIComponent(s)}/admin/mercadopago/oauth/iniciar`,
+      { method: 'POST' },
+    )
+    if (res.status === 401) {
+      auth.cerrarSesion()
+      await router.replace({
+        name: 'admin-login',
+        params: { slug: s },
+        query: { redirect: route.fullPath },
+      })
+      return
+    }
+    if (!res.ok) {
+      try {
+        const j = (await res.json()) as { error?: string }
+        error.value = j.error ?? `Error ${res.status}`
+      } catch {
+        error.value = `Error ${res.status}`
+      }
+      return
+    }
+    const data = (await res.json()) as { authorizationUrl: string }
+    if (!data.authorizationUrl) {
+      error.value = 'La API no devolvió la URL de autorización.'
+      return
+    }
+    window.location.href = data.authorizationUrl
+  } catch {
+    error.value = 'Error de red.'
+  } finally {
+    conectando.value = false
+  }
+}
+
+onMounted(() => {
+  procesarRetornoOAuth()
+  void cargarContexto()
+})
 
 async function guardar() {
   okMsg.value = null
@@ -157,7 +219,29 @@ function salir() {
           <strong v-else>Sin token propio — se usa el de la plataforma (si existe en la API)</strong>
         </p>
 
-        <p class="hint">
+        <template v-if="contexto.mercadoPagoOAuthDisponible">
+          <p class="hint">
+            <strong>Recomendado:</strong> vinculá tu cuenta con un clic. Autorizás la app de la plataforma y los
+            cobros van a tu Mercado Pago sin copiar tokens.
+          </p>
+          <p v-if="contexto.mercadoPagoConectadoOAuth" class="oauth-meta">
+            Vinculada vía OAuth
+            <span v-if="contexto.mercadoPagoUserId"> (usuario {{ contexto.mercadoPagoUserId }})</span>
+            <span v-if="contexto.mercadoPagoConectadoEn">
+              — {{ new Date(contexto.mercadoPagoConectadoEn).toLocaleString() }}
+            </span>
+          </p>
+          <button
+            type="button"
+            class="btn-connect"
+            :disabled="conectando || guardando"
+            @click="conectarMercadoPago"
+          >
+            {{ conectando ? 'Redirigiendo a Mercado Pago…' : contexto.mercadoPagoConectadoOAuth ? 'Reconectar cuenta' : 'Conectar con Mercado Pago' }}
+          </button>
+          <p class="hint sep">O pegá el Access Token manualmente (modo avanzado):</p>
+        </template>
+        <p v-else class="hint">
           En
           <a href="https://www.mercadopago.com.ar/developers/panel/app" target="_blank" rel="noopener"
             >Tus integraciones</a
@@ -265,5 +349,30 @@ function salir() {
 }
 .btn-submit:disabled {
   opacity: 0.65;
+}
+.btn-connect {
+  display: block;
+  width: 100%;
+  margin-bottom: 1rem;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  border: none;
+  background: #009ee3;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-connect:disabled {
+  opacity: 0.65;
+}
+.oauth-meta {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: #15803d;
+}
+.hint.sep {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border, #e5e7eb);
 }
 </style>

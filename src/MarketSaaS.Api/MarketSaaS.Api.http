@@ -98,6 +98,13 @@ Authorization: Bearer {{tokenSuper}}
 GET {{host}}/api/negocios/mi-tienda-demo/admin/contexto
 Authorization: Bearer {{tokenAdmin}}
 
+### Mercado Pago Connect (OAuth): iniciar vinculación → abrir authorizationUrl en el navegador
+POST {{host}}/api/negocios/mi-tienda-demo/admin/mercadopago/oauth/iniciar
+Authorization: Bearer {{tokenAdmin}}
+
+### Callback OAuth (público; Mercado Pago redirige aquí tras autorizar)
+# GET {{host}}/api/mercadopago/oauth/callback?code=...&state=...
+
 ### Mercado Pago por tienda: guardar Access Token del vendedor (opcional WebhookSecret). Omitir props no cambia BD.
 PUT {{host}}/api/negocios/mi-tienda-demo/admin/mercadopago
 Content-Type: application/json
