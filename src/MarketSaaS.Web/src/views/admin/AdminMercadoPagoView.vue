@@ -72,11 +72,17 @@ function procesarRetornoOAuth() {
   const oauth = route.query.mp_oauth
   if (oauth === 'ok') {
     okMsg.value = 'Cuenta de Mercado Pago vinculada correctamente.'
-    router.replace({ query: {} })
+    void router.replace({
+      name: 'admin-mercadopago',
+      params: { slug: slug.value },
+    })
   } else if (oauth === 'error') {
     const msg = typeof route.query.mp_msg === 'string' ? route.query.mp_msg : 'No se pudo vincular la cuenta.'
     error.value = msg
-    router.replace({ query: {} })
+    void router.replace({
+      name: 'admin-mercadopago',
+      params: { slug: slug.value },
+    })
   }
 }
 

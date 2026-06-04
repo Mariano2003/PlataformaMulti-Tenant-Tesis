@@ -39,34 +39,56 @@ public sealed class MercadoPagoOAuthController : ControllerBase
         var appBase = ObtenerUrlBaseFront();
         var slugFallback = "admin";
 
+        var apiBase = _mp.PublicApiBaseUrl?.Trim().TrimEnd('/');
+        if (!string.IsNullOrEmpty(apiBase)
+            && string.Equals(appBase, apiBase, StringComparison.OrdinalIgnoreCase))
+        {
+            return Redirect(ConstruirUrlAdmin(
+                appBase,
+                slugFallback,
+                "error",
+                "MercadoPago:PublicAppBaseUrl no puede ser la URL de la API. Usá la URL del front (static site).",
+                _mp.SpaUseHashRouter));
+        }
+
         if (!string.IsNullOrWhiteSpace(error))
         {
             var msg = error_description ?? error;
-            return Redirect(ConstruirUrlAdmin(appBase, slugFallback, "error", msg));
+            return Redirect(ConstruirUrlAdmin(appBase, slugFallback, "error", msg, _mp.SpaUseHashRouter));
         }
 
         if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(state))
-            return Redirect(ConstruirUrlAdmin(appBase, slugFallback, "error", "Faltan parámetros de Mercado Pago."));
+            return Redirect(ConstruirUrlAdmin(
+                appBase,
+                slugFallback,
+                "error",
+                "Faltan parámetros de Mercado Pago.",
+                _mp.SpaUseHashRouter));
 
         try
         {
             var slug = await _oauth.CompletarAutorizacionAsync(code, state, ct);
-            return Redirect(ConstruirUrlAdmin(appBase, slug, "ok", null));
+            return Redirect(ConstruirUrlAdmin(appBase, slug, "ok", null, _mp.SpaUseHashRouter));
         }
         catch (Exception ex)
         {
-            return Redirect(ConstruirUrlAdmin(appBase, slugFallback, "error", ex.Message));
+            return Redirect(ConstruirUrlAdmin(appBase, slugFallback, "error", ex.Message, _mp.SpaUseHashRouter));
         }
     }
 
-    private static string ConstruirUrlAdmin(string appBase, string slug, string resultado, string? mensaje)
+    private static string ConstruirUrlAdmin(
+        string appBase,
+        string slug,
+        string resultado,
+        string? mensaje,
+        bool usarHashRouter)
     {
         var query = new Dictionary<string, string?> { ["mp_oauth"] = resultado };
         if (!string.IsNullOrWhiteSpace(mensaje))
             query["mp_msg"] = mensaje.Length > 200 ? mensaje[..200] : mensaje;
 
-        var ruta = QueryHelpers.AddQueryString($"/admin/{Uri.EscapeDataString(slug)}/mercadopago", query!);
-        return FrontAppUrls.Construir(appBase, ruta);
+        var ruta = QueryHelpers.AddQueryString($"/admin/{slug}/mercadopago", query!);
+        return FrontAppUrls.Construir(appBase, ruta, usarHashRouter);
     }
 
     private string ObtenerUrlBaseFront()
