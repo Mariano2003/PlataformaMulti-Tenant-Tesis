@@ -13,11 +13,12 @@ public static class FrontAppUrls
         return host is "localhost" or "127.0.0.1" or "::1" ? "" : "/#";
     }
 
-    public static string Construir(string appBase, string rutaYQuery)
+    public static string Construir(string appBase, string rutaYQuery, bool usarHashRouter = true)
     {
         var baseNorm = NormalizarBase(appBase);
         var ruta = rutaYQuery.StartsWith('/') ? rutaYQuery : "/" + rutaYQuery;
-        return $"{baseNorm}{PrefijoRutaSpa(baseNorm)}{ruta}";
+        var prefijo = usarHashRouter ? PrefijoRutaSpa(baseNorm) : "";
+        return $"{baseNorm}{prefijo}{ruta}";
     }
 
     /// <summary>Quita <c>/#</c> final por si la URL del front se copió con hash.</summary>

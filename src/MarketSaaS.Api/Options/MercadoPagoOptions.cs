@@ -46,4 +46,10 @@ public sealed class MercadoPagoOptions
 
     /// <summary>Si true, se envía PKCE (<c>code_challenge</c> S256). Activá el mismo flujo en el panel MP.</summary>
     public bool OAuthUsePkce { get; set; }
+
+    /// <summary>
+    /// Si true (default), las redirecciones al front usan <c>/#/ruta</c> (router hash en Render).
+    /// Poné false solo si el front se buildó con <c>VITE_ROUTER_HASH=false</c> y tenés rewrite SPA.
+    /// </summary>
+    public bool SpaUseHashRouter { get; set; } = true;
 }
