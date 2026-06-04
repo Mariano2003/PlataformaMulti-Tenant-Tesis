@@ -8,4 +8,7 @@ public interface IMercadoPagoOAuthService
 
     /// <summary>Intercambia el código y guarda credenciales en el negocio. Devuelve slug para redirigir al admin.</summary>
     Task<string> CompletarAutorizacionAsync(string code, string state, CancellationToken ct = default);
+
+    /// <summary>Slug de la tienda asociada al state OAuth pendiente (si existe).</summary>
+    Task<string?> ObtenerSlugPorStateAsync(string state, CancellationToken ct = default);
 }

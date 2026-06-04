@@ -95,8 +95,6 @@ public sealed class MercadoPagoOAuthService : IMercadoPagoOAuthService
         if (pendiente is null || pendiente.ExpiraEn < DateTime.UtcNow)
             throw new InvalidOperationException("El enlace de autorización expiró. Volvé a intentar desde el panel.");
 
-        await _states.DeleteOneAsync(s => s.Id == pendiente.Id, ct);
-
         var form = new Dictionary<string, string>
         {
             ["grant_type"] = "authorization_code",
@@ -130,12 +128,23 @@ public sealed class MercadoPagoOAuthService : IMercadoPagoOAuthService
             token.Expires_in,
             ct);
 
+        await _states.DeleteOneAsync(s => s.Id == pendiente.Id, ct);
+
         _log.LogInformation(
             "MP OAuth: tienda {Slug} vinculada (user_id={UserId})",
             pendiente.Slug,
             userId);
 
         return pendiente.Slug;
+    }
+
+    public async Task<string?> ObtenerSlugPorStateAsync(string state, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(state))
+            return null;
+
+        var pendiente = await _states.Find(s => s.State == state.Trim()).FirstOrDefaultAsync(ct);
+        return pendiente?.Slug;
     }
 
     private string ObtenerRedirectUri()

@@ -37,15 +37,15 @@ public sealed class MercadoPagoOAuthController : ControllerBase
         CancellationToken ct)
     {
         var appBase = ObtenerUrlBaseFront();
-        var slugFallback = "admin";
 
         var apiBase = _mp.PublicApiBaseUrl?.Trim().TrimEnd('/');
         if (!string.IsNullOrEmpty(apiBase)
             && string.Equals(appBase, apiBase, StringComparison.OrdinalIgnoreCase))
         {
+            var slugCfg = await ResolverSlugRedirectAsync(state, ct);
             return Redirect(ConstruirUrlAdmin(
                 appBase,
-                slugFallback,
+                slugCfg,
                 "error",
                 "MercadoPago:PublicAppBaseUrl no puede ser la URL de la API. Usá la URL del front (static site).",
                 _mp.SpaUseHashRouter));
@@ -54,16 +54,20 @@ public sealed class MercadoPagoOAuthController : ControllerBase
         if (!string.IsNullOrWhiteSpace(error))
         {
             var msg = error_description ?? error;
-            return Redirect(ConstruirUrlAdmin(appBase, slugFallback, "error", msg, _mp.SpaUseHashRouter));
+            var slugErr = await ResolverSlugRedirectAsync(state, ct);
+            return Redirect(ConstruirUrlAdmin(appBase, slugErr, "error", msg, _mp.SpaUseHashRouter));
         }
 
         if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(state))
+        {
+            var slugFaltan = await ResolverSlugRedirectAsync(state, ct);
             return Redirect(ConstruirUrlAdmin(
                 appBase,
-                slugFallback,
+                slugFaltan,
                 "error",
                 "Faltan parámetros de Mercado Pago.",
                 _mp.SpaUseHashRouter));
+        }
 
         try
         {
@@ -72,8 +76,21 @@ public sealed class MercadoPagoOAuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            return Redirect(ConstruirUrlAdmin(appBase, slugFallback, "error", ex.Message, _mp.SpaUseHashRouter));
+            var slugCatch = await ResolverSlugRedirectAsync(state, ct);
+            return Redirect(ConstruirUrlAdmin(appBase, slugCatch, "error", ex.Message, _mp.SpaUseHashRouter));
         }
+    }
+
+    private async Task<string> ResolverSlugRedirectAsync(string? state, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(state))
+        {
+            var slug = await _oauth.ObtenerSlugPorStateAsync(state, ct);
+            if (!string.IsNullOrWhiteSpace(slug))
+                return slug;
+        }
+
+        return "admin";
     }
 
     private static string ConstruirUrlAdmin(
