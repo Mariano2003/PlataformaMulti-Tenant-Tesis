@@ -19,17 +19,20 @@ public class PedidosAdminController : ControllerBase
     [HttpGet]
     [Authorize(Policy = Policies.SuperAdminOrAdminTienda)]
     [RequireMatchingNegocio]
-    [ProducesResponseType(typeof(IReadOnlyList<PedidoResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginaResponse<PedidoResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<IReadOnlyList<PedidoResponse>>> Listar(
-        [FromQuery] int limite = 100,
+    public async Task<ActionResult<PaginaResponse<PedidoResponse>>> Listar(
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamano = 20,
         CancellationToken ct = default)
     {
         if (!HttpContext.TryGetNegocioActual(out var negocio))
             return NotFound();
 
-        var pedidos = await _pedidos.ListarPorNegocioAsync(negocio.Id, limite, ct);
-        return Ok(pedidos.Select(Map).ToList());
+        var (items, total) = await _pedidos.ListarPorNegocioPaginadoAsync(negocio.Id, pagina, tamano, ct);
+        var (p, t, _) = PaginacionConsulta.Normalizar(pagina, tamano);
+        var respuesta = PaginacionConsulta.Armar(items.Select(Map).ToList(), p, t, total);
+        return Ok(respuesta);
     }
 
     [HttpGet("{id}")]

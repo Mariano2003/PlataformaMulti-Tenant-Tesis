@@ -32,6 +32,31 @@ public sealed class ProductoService : IProductoService
         return await _productos.Find(f).SortBy(p => p.Nombre).ToListAsync(ct);
     }
 
+    public async Task<(IReadOnlyList<Producto> Items, long Total)> ListarPorNegocioPaginadoAsync(
+        string negocioId,
+        bool soloActivos,
+        string? categoriaId,
+        int pagina,
+        int tamano,
+        CancellationToken ct = default)
+    {
+        var f = Builders<Producto>.Filter.Eq(p => p.NegocioId, negocioId);
+        if (soloActivos)
+            f &= Builders<Producto>.Filter.Eq(p => p.Activo, true);
+        if (!string.IsNullOrWhiteSpace(categoriaId))
+            f &= Builders<Producto>.Filter.Eq(p => p.CategoriaId, categoriaId);
+
+        var (p, t, skip) = PaginacionConsulta.Normalizar(pagina, tamano);
+        var total = await _productos.CountDocumentsAsync(f, cancellationToken: ct);
+        var items = await _productos
+            .Find(f)
+            .SortBy(prod => prod.Nombre)
+            .Skip(skip)
+            .Limit(t)
+            .ToListAsync(ct);
+        return (items, total);
+    }
+
     public async Task<Producto?> ObtenerPorIdYNegocioAsync(string id, string negocioId, bool soloActivos, CancellationToken ct = default)
     {
         var p = await _productos.Find(x => x.Id == id && x.NegocioId == negocioId).FirstOrDefaultAsync(ct);

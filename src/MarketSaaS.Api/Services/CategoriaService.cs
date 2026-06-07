@@ -29,6 +29,29 @@ public sealed class CategoriaService : ICategoriaService
             .ToListAsync(ct);
     }
 
+    public async Task<(IReadOnlyList<Categoria> Items, long Total)> ListarPorNegocioPaginadoAsync(
+        string negocioId,
+        bool soloActivos,
+        int pagina,
+        int tamano,
+        CancellationToken ct = default)
+    {
+        var f = Builders<Categoria>.Filter.Eq(c => c.NegocioId, negocioId);
+        if (soloActivos)
+            f &= Builders<Categoria>.Filter.Eq(c => c.Activo, true);
+
+        var (p, t, skip) = PaginacionConsulta.Normalizar(pagina, tamano);
+        var sort = Builders<Categoria>.Sort.Ascending(c => c.Orden).Ascending(c => c.Nombre);
+        var total = await _categorias.CountDocumentsAsync(f, cancellationToken: ct);
+        var items = await _categorias
+            .Find(f)
+            .Sort(sort)
+            .Skip(skip)
+            .Limit(t)
+            .ToListAsync(ct);
+        return (items, total);
+    }
+
     public async Task<Categoria?> ObtenerPorIdYNegocioAsync(string id, string negocioId, CancellationToken ct = default)
     {
         Categoria? found = await _categorias.Find(c => c.Id == id && c.NegocioId == negocioId).FirstOrDefaultAsync(ct);

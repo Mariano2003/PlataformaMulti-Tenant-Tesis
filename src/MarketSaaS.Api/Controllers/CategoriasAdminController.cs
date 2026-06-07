@@ -19,17 +19,23 @@ public class CategoriasAdminController : ControllerBase
     [HttpGet]
     [Authorize(Policy = Policies.SuperAdminOrAdminTienda)]
     [RequireMatchingNegocio]
-    [ProducesResponseType(typeof(IReadOnlyList<CategoriaResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginaResponse<CategoriaResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<IReadOnlyList<CategoriaResponse>>> Listar(CancellationToken ct)
+    public async Task<ActionResult<PaginaResponse<CategoriaResponse>>> Listar(
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamano = 20,
+        CancellationToken ct = default)
     {
         if (!HttpContext.TryGetNegocioActual(out var negocio))
             return NotFound();
 
-        var categorias = await _categorias.ListarPorNegocioAsync(negocio.Id, soloActivos: false, ct);
-        return Ok(categorias.Select(Map).ToList());
+        var (items, total) = await _categorias.ListarPorNegocioPaginadoAsync(
+            negocio.Id, soloActivos: false, pagina, tamano, ct);
+        var (p, t, _) = PaginacionConsulta.Normalizar(pagina, tamano);
+        var respuesta = PaginacionConsulta.Armar(items.Select(Map).ToList(), p, t, total);
+        return Ok(respuesta);
     }
 
     [HttpPost]

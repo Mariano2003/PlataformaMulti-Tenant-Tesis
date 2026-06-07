@@ -26,6 +26,25 @@ export interface CrearNegocioPayload {
   tiendaAdminApellido?: string | null
 }
 
+/** Alineado con `CategoriaResponse` (público, solo activas). */
+export interface CategoriaPublico {
+  id: string
+  negocioId: string
+  nombre: string
+  orden: number
+  activo: boolean
+  creadoEn: string
+}
+
+/** Respuesta paginada de listados admin. */
+export interface PaginaResponseDto<T> {
+  items: T[]
+  pagina: number
+  tamano: number
+  total: number
+  totalPaginas: number
+}
+
 /** Alineado con `ProductoResponse` (público, solo activos). */
 export interface ProductoPublico {
   id: string

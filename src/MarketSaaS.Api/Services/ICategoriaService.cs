@@ -7,6 +7,13 @@ public interface ICategoriaService
 {
     Task<IReadOnlyList<Categoria>> ListarPorNegocioAsync(string negocioId, bool soloActivos, CancellationToken ct = default);
 
+    Task<(IReadOnlyList<Categoria> Items, long Total)> ListarPorNegocioPaginadoAsync(
+        string negocioId,
+        bool soloActivos,
+        int pagina,
+        int tamano,
+        CancellationToken ct = default);
+
     Task<Categoria?> ObtenerPorIdYNegocioAsync(string id, string negocioId, CancellationToken ct = default);
 
     Task<Categoria> CrearAsync(string negocioId, CrearCategoriaRequest dto, CancellationToken ct = default);

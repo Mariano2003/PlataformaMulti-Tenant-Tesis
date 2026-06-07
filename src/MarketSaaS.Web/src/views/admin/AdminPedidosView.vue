@@ -2,9 +2,11 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AdminNav from '../../components/admin/AdminNav.vue'
+import AdminPaginacion from '../../components/admin/AdminPaginacion.vue'
 import { useAuthedFetch } from '../../composables/useAuthedFetch'
 import { useAuthStore } from '../../stores/auth'
 import type { PedidoListDto } from '../../types/api'
+import { parsePaginaResponse } from '../../utils/parsePaginaResponse'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,6 +16,10 @@ const authedFetch = useAuthedFetch()
 const slug = computed(() => (route.params.slug as string) || '')
 
 const pedidos = ref<PedidoListDto[]>([])
+const pagina = ref(1)
+const totalPaginas = ref(1)
+const total = ref(0)
+const tamanoPagina = 20
 const cargando = ref(true)
 const error = ref<string | null>(null)
 
@@ -34,7 +40,7 @@ function formatearFecha(iso: string) {
   }
 }
 
-async function cargarPedidos() {
+async function cargarPedidos(paginaDestino = pagina.value) {
   cargando.value = true
   error.value = null
   pedidos.value = []
@@ -46,7 +52,7 @@ async function cargarPedidos() {
   }
   try {
     const res = await authedFetch(
-      `/api/negocios/${encodeURIComponent(s)}/admin/pedidos?limite=100`,
+      `/api/negocios/${encodeURIComponent(s)}/admin/pedidos?pagina=${paginaDestino}&tamano=${tamanoPagina}`,
     )
     if (res.status === 401) {
       auth.cerrarSesion()
@@ -66,12 +72,26 @@ async function cargarPedidos() {
       error.value = `Error ${res.status}`
       return
     }
-    pedidos.value = (await res.json()) as PedidoListDto[]
+    const paginado = parsePaginaResponse<PedidoListDto>(await res.json())
+    pedidos.value = paginado.items
+    pagina.value = paginado.pagina
+    totalPaginas.value = paginado.totalPaginas
+    total.value = paginado.total
   } catch {
     error.value = 'Error de red al cargar pedidos.'
   } finally {
     cargando.value = false
   }
+}
+
+function paginaAnterior() {
+  if (pagina.value <= 1) return
+  void cargarPedidos(pagina.value - 1)
+}
+
+function paginaSiguiente() {
+  if (pagina.value >= totalPaginas.value) return
+  void cargarPedidos(pagina.value + 1)
 }
 
 function salir() {
@@ -94,7 +114,7 @@ onMounted(() => {
         </p>
       </div>
       <div class="admin-actions">
-        <button type="button" class="btn-ghost" @click="cargarPedidos">Actualizar</button>
+        <button type="button" class="btn-ghost" @click="() => void cargarPedidos()">Actualizar</button>
         <button type="button" class="btn-ghost" @click="salir">Salir</button>
       </div>
     </header>
@@ -112,8 +132,9 @@ onMounted(() => {
 
     <div v-else-if="!pedidos.length" class="admin-msg">No hay pedidos en esta tienda.</div>
 
-    <div v-else class="admin-table-wrap">
-      <table class="admin-table">
+    <template v-else>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
         <thead>
           <tr>
             <th>Fecha</th>
@@ -138,6 +159,15 @@ onMounted(() => {
           </tr>
         </tbody>
       </table>
-    </div>
+      </div>
+      <AdminPaginacion
+        :pagina="pagina"
+        :total-paginas="totalPaginas"
+        :total="total"
+        :cargando="cargando"
+        @anterior="paginaAnterior"
+        @siguiente="paginaSiguiente"
+      />
+    </template>
   </div>
 </template>

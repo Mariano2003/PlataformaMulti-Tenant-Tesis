@@ -49,16 +49,17 @@ function agregar() {
 
 <template>
   <article class="producto-card">
-    <div v-if="producto.imagenUrl" class="thumb-wrap">
+    <div class="thumb-wrap">
       <img
-        v-show="!imagenRota"
+        v-if="producto.imagenUrl && !imagenRota"
         class="thumb"
         :src="producto.imagenUrl"
         :alt="`Foto de ${producto.nombre}`"
         loading="lazy"
         @error="imagenRota = true"
       />
-      <p v-show="imagenRota" class="thumb-fail">Imagen no disponible</p>
+      <p v-else-if="producto.imagenUrl && imagenRota" class="thumb-fail">Imagen no disponible</p>
+      <p v-else class="thumb-placeholder" aria-hidden="true">Sin imagen</p>
     </div>
     <div class="producto-card__body">
       <h2>{{ producto.nombre }}</h2>
@@ -112,6 +113,12 @@ function agregar() {
 .thumb-fail {
   margin: 0;
   padding: 0.75rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+.thumb-placeholder {
+  margin: 0;
   font-size: 0.82rem;
   color: var(--text-muted);
   text-align: center;

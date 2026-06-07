@@ -2,9 +2,11 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AdminNav from '../../components/admin/AdminNav.vue'
+import AdminPaginacion from '../../components/admin/AdminPaginacion.vue'
 import { useAuthedFetch } from '../../composables/useAuthedFetch'
 import { useAuthStore } from '../../stores/auth'
 import type { CategoriaAdminDto } from '../../types/api'
+import { parsePaginaResponse } from '../../utils/parsePaginaResponse'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,6 +16,10 @@ const authedFetch = useAuthedFetch()
 const slug = computed(() => (route.params.slug as string) || '')
 
 const categorias = ref<CategoriaAdminDto[]>([])
+const pagina = ref(1)
+const totalPaginas = ref(1)
+const total = ref(0)
+const tamanoPagina = 20
 const cargando = ref(true)
 const error = ref<string | null>(null)
 const msg = ref<string | null>(null)
@@ -56,7 +62,7 @@ async function manejar401() {
   })
 }
 
-async function cargar() {
+async function cargar(paginaDestino = pagina.value) {
   cargando.value = true
   error.value = null
   msg.value = null
@@ -68,7 +74,9 @@ async function cargar() {
     return
   }
   try {
-    const res = await authedFetch(baseUrl())
+    const res = await authedFetch(
+      `${baseUrl()}?pagina=${paginaDestino}&tamano=${tamanoPagina}`,
+    )
     if (res.status === 401) {
       await manejar401()
       return
@@ -81,7 +89,11 @@ async function cargar() {
       error.value = await leerErrorApi(res)
       return
     }
-    categorias.value = (await res.json()) as CategoriaAdminDto[]
+    const paginado = parsePaginaResponse<CategoriaAdminDto>(await res.json())
+    categorias.value = paginado.items
+    pagina.value = paginado.pagina
+    totalPaginas.value = paginado.totalPaginas
+    total.value = paginado.total
     if (categoriaEdicion.value) {
       const actual = categorias.value.find((c) => c.id === categoriaEdicion.value!.id)
       categoriaEdicion.value = actual ?? null
@@ -92,6 +104,16 @@ async function cargar() {
   } finally {
     cargando.value = false
   }
+}
+
+function paginaAnterior() {
+  if (pagina.value <= 1) return
+  void cargar(pagina.value - 1)
+}
+
+function paginaSiguiente() {
+  if (pagina.value >= totalPaginas.value) return
+  void cargar(pagina.value + 1)
 }
 
 function sincronizarEdicion(c: CategoriaAdminDto) {
@@ -143,7 +165,8 @@ async function crear() {
     nuevo.nombre = ''
     nuevo.orden = ''
     msg.value = 'Categoría creada.'
-    await cargar()
+    pagina.value = 1
+    await cargar(1)
   } catch {
     msg.value = 'Error de red al crear la categoría.'
   } finally {
@@ -246,7 +269,7 @@ onMounted(() => {
         </p>
       </div>
       <div class="admin-actions">
-        <button type="button" class="btn-ghost" @click="cargar">Actualizar</button>
+        <button type="button" class="btn-ghost" @click="() => void cargar()">Actualizar</button>
         <button type="button" class="btn-ghost" @click="salir">Salir</button>
       </div>
     </header>
@@ -328,8 +351,11 @@ onMounted(() => {
 
       <section class="admin-card">
         <h2>Listado</h2>
-        <p v-if="!categorias.length" class="admin-msg">
+        <p v-if="total === 0" class="admin-msg">
           No hay categorías. Creá la primera arriba.
+        </p>
+        <p v-else-if="!categorias.length" class="admin-msg">
+          No hay categorías en esta página.
         </p>
         <div v-else class="admin-table-wrap">
           <table class="admin-table">
@@ -365,6 +391,14 @@ onMounted(() => {
             </tbody>
           </table>
         </div>
+        <AdminPaginacion
+          :pagina="pagina"
+          :total-paginas="totalPaginas"
+          :total="total"
+          :cargando="cargando"
+          @anterior="paginaAnterior"
+          @siguiente="paginaSiguiente"
+        />
       </section>
     </template>
   </div>
