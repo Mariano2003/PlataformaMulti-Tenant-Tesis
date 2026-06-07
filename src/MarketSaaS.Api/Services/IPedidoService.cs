@@ -33,4 +33,8 @@ public interface IPedidoService
     Task<IReadOnlyList<Pedido>> ListarPorClienteEmailAsync(string clienteEmail, int limite, CancellationToken ct = default);
 
     Task<Pedido?> ObtenerPorIdYNegocioAsync(string id, string negocioId, CancellationToken ct = default);
+
+    Task<Pedido?> ActualizarEstadoAdminAsync(string negocioId, string pedidoId, string nuevoEstado, CancellationToken ct = default);
+
+    Task<int> ContarPedidosPagadosDesdeAsync(string negocioId, DateTime desdeUtc, CancellationToken ct = default);
 }

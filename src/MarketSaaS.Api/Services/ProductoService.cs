@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using MarketSaaS.Api.DTOs;
 using MarketSaaS.Api.Infrastructure;
 using MarketSaaS.Api.Models;
@@ -36,15 +37,12 @@ public sealed class ProductoService : IProductoService
         string negocioId,
         bool soloActivos,
         string? categoriaId,
+        string? buscar,
         int pagina,
         int tamano,
         CancellationToken ct = default)
     {
-        var f = Builders<Producto>.Filter.Eq(p => p.NegocioId, negocioId);
-        if (soloActivos)
-            f &= Builders<Producto>.Filter.Eq(p => p.Activo, true);
-        if (!string.IsNullOrWhiteSpace(categoriaId))
-            f &= Builders<Producto>.Filter.Eq(p => p.CategoriaId, categoriaId);
+        var f = FiltroListado(negocioId, soloActivos, categoriaId, buscar);
 
         var (p, t, skip) = PaginacionConsulta.Normalizar(pagina, tamano);
         var total = await _productos.CountDocumentsAsync(f, cancellationToken: ct);
@@ -147,6 +145,30 @@ public sealed class ProductoService : IProductoService
             throw new ArgumentException("El precio no puede ser negativo.");
         if (stock < 0)
             throw new ArgumentException("El stock no puede ser negativo.");
+    }
+
+    private static FilterDefinition<Producto> FiltroListado(
+        string negocioId,
+        bool soloActivos,
+        string? categoriaId,
+        string? buscar)
+    {
+        var f = Builders<Producto>.Filter.Eq(p => p.NegocioId, negocioId);
+        if (soloActivos)
+            f &= Builders<Producto>.Filter.Eq(p => p.Activo, true);
+        if (!string.IsNullOrWhiteSpace(categoriaId))
+            f &= Builders<Producto>.Filter.Eq(p => p.CategoriaId, categoriaId);
+
+        var termino = buscar?.Trim();
+        if (!string.IsNullOrWhiteSpace(termino))
+        {
+            var regex = new BsonRegularExpression(Regex.Escape(termino), "i");
+            f &= Builders<Producto>.Filter.Or(
+                Builders<Producto>.Filter.Regex(p => p.Nombre, regex),
+                Builders<Producto>.Filter.Regex(p => p.DescripcionCorta!, regex));
+        }
+
+        return f;
     }
 
     private static string? NormalizarImagenUrl(string? url)

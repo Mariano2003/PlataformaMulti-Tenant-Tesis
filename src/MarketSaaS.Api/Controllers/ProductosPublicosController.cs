@@ -1,4 +1,5 @@
 using MarketSaaS.Api.DTOs;
+using MarketSaaS.Api.Infrastructure;
 using MarketSaaS.Api.Models;
 using MarketSaaS.Api.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -21,19 +22,25 @@ public class ProductosPublicosController : ControllerBase
 
     [HttpGet]
     [AllowAnonymous]
-    [ProducesResponseType(typeof(IReadOnlyList<ProductoResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginaResponse<ProductoResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<IReadOnlyList<ProductoResponse>>> Listar(
+    public async Task<ActionResult<PaginaResponse<ProductoResponse>>> Listar(
         string slug,
         [FromQuery] string? categoriaId,
-        CancellationToken ct)
+        [FromQuery] string? buscar,
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamano = 12,
+        CancellationToken ct = default)
     {
         var negocio = await _negocios.ObtenerPorSlugAsync(slug, ct);
         if (negocio is null)
             return NotFound();
 
-        var productos = await _productos.ListarPorNegocioAsync(negocio.Id, soloActivos: true, categoriaId, ct);
-        return Ok(productos.Select(Map).ToList());
+        var (items, total) = await _productos.ListarPorNegocioPaginadoAsync(
+            negocio.Id, soloActivos: true, categoriaId, buscar, pagina, tamano, ct);
+        var (p, t, _) = PaginacionConsulta.Normalizar(pagina, tamano, tamanoMaximo: 48);
+        var respuesta = PaginacionConsulta.Armar(items.Select(Map).ToList(), p, t, total);
+        return Ok(respuesta);
     }
 
     [HttpGet("{id}")]

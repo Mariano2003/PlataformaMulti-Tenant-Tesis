@@ -125,5 +125,18 @@ public sealed class NegocioService : INegocioService
         await _negocios.UpdateOneAsync(n => n.Id == negocioId, update, cancellationToken: ct);
     }
 
+    public async Task DesconectarMercadoPagoOAuthAsync(string negocioId, CancellationToken ct = default)
+    {
+        await _negocios.UpdateOneAsync(
+            n => n.Id == negocioId,
+            Builders<Negocio>.Update
+                .Unset(n => n.MercadoPagoAccessToken)
+                .Unset(n => n.MercadoPagoRefreshToken)
+                .Unset(n => n.MercadoPagoUserId)
+                .Unset(n => n.MercadoPagoTokenExpiraEn)
+                .Unset(n => n.MercadoPagoConectadoEn),
+            cancellationToken: ct);
+    }
+
     private static string NormalizarSlug(string slug) => slug.Trim().ToLowerInvariant();
 }

@@ -14,8 +14,29 @@ public static class PedidoEstados
     public const string Pagado = "Pagado";
     public const string Rechazado = "Rechazado";
 
+    /// <summary>El dueño prepara el pedido (post-pago).</summary>
+    public const string EnPreparacion = "EnPreparacion";
+
+    public const string Enviado = "Enviado";
+    public const string Entregado = "Entregado";
+
+    /// <summary>Cancelado manualmente por el admin (post-pago o en curso).</summary>
+    public const string Cancelado = "Cancelado";
+
     /// <summary>Flujo legacy / contrareembolso sin pasarela (datos viejos en BD).</summary>
     public const string Confirmado = "Confirmado";
+
+    /// <summary>Estados a los que el admin puede pasar un pedido ya cobrado.</summary>
+    public static readonly IReadOnlyList<string> EstadosGestionAdmin =
+    [
+        EnPreparacion,
+        Enviado,
+        Entregado,
+        Cancelado,
+    ];
+
+    public static bool AdminPuedeGestionar(string estado) =>
+        estado is Pagado or Confirmado or EnPreparacion or Enviado;
 }
 
 /// <summary>Ítem persistido en el pedido (snapshot de precio y nombre).</summary>

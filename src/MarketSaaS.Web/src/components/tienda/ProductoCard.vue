@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useCarritoStore } from '../../stores/carrito'
 import type { ProductoPublico } from '../../types/api'
 import { usePrecioFmt } from '../../composables/usePrecioFmt'
+import { resolveImagenUrl } from '../../utils/resolveImagenUrl'
 
 const props = defineProps<{
   producto: ProductoPublico
@@ -18,6 +19,8 @@ const stockDisponible = computed(() => carrito.stockDisponible(props.producto))
 const sinStock = computed(
   () => props.producto.stock < 1 || stockDisponible.value < 1,
 )
+
+const imagenSrc = computed(() => resolveImagenUrl(props.producto.imagenUrl))
 
 watch(
   () => props.producto.imagenUrl,
@@ -51,14 +54,14 @@ function agregar() {
   <article class="producto-card">
     <div class="thumb-wrap">
       <img
-        v-if="producto.imagenUrl && !imagenRota"
+        v-if="imagenSrc && !imagenRota"
         class="thumb"
-        :src="producto.imagenUrl"
+        :src="imagenSrc"
         :alt="`Foto de ${producto.nombre}`"
         loading="lazy"
         @error="imagenRota = true"
       />
-      <p v-else-if="producto.imagenUrl && imagenRota" class="thumb-fail">Imagen no disponible</p>
+      <p v-else-if="imagenSrc && imagenRota" class="thumb-fail">Imagen no disponible</p>
       <p v-else class="thumb-placeholder" aria-hidden="true">Sin imagen</p>
     </div>
     <div class="producto-card__body">

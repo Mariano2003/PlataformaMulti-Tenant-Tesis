@@ -3,30 +3,44 @@ import { ref, watch } from 'vue'
 import { apiUrl } from '../config/api'
 import type { CategoriaPublico, NegocioPublico, ProductoPublico } from '../types/api'
 import { normalizarProductoPublicoDto } from '../utils/normalizarProductoApi'
+import { parsePaginaResponse } from '../utils/parsePaginaResponse'
 
 export function useTiendaCatalogo(
   slug: ComputedRef<string>,
   categoriaId?: Ref<string | null>,
+  buscar?: Ref<string>,
+  pagina?: Ref<number>,
 ) {
   const negocio = ref<NegocioPublico | null>(null)
   const categorias = ref<CategoriaPublico[]>([])
   const productos = ref<ProductoPublico[]>([])
+  const total = ref(0)
+  const totalPaginas = ref(1)
+  const tamanoPagina = 12
   const loading = ref(true)
   const error = ref<string | null>(null)
 
-  async function cargarProductos(s: string, catId: string | null) {
-    const qs = catId ? `?categoriaId=${encodeURIComponent(catId)}` : ''
+  async function cargarProductos(s: string) {
+    const params = new URLSearchParams()
+    params.set('pagina', String(pagina?.value ?? 1))
+    params.set('tamano', String(tamanoPagina))
+    const cat = categoriaId?.value?.trim()
+    if (cat) params.set('categoriaId', cat)
+    const q = buscar?.value?.trim()
+    if (q) params.set('buscar', q)
+
     const rProd = await fetch(
-      apiUrl(`/api/negocios/${encodeURIComponent(s)}/productos${qs}`),
+      apiUrl(`/api/negocios/${encodeURIComponent(s)}/productos?${params.toString()}`),
     )
     if (!rProd.ok) {
       error.value = `No se pudieron cargar los productos (${rProd.status}).`
       return false
     }
-    const rawProd = (await rProd.json()) as unknown
-    productos.value = Array.isArray(rawProd)
-      ? rawProd.map((x) => normalizarProductoPublicoDto(x as Record<string, unknown>))
-      : []
+    const paginado = parsePaginaResponse(await rProd.json(), normalizarProductoPublicoDto)
+    productos.value = paginado.items
+    total.value = paginado.total
+    totalPaginas.value = paginado.totalPaginas
+    if (pagina) pagina.value = paginado.pagina
     return true
   }
 
@@ -47,7 +61,6 @@ export function useTiendaCatalogo(
     error.value = null
     negocio.value = null
     productos.value = []
-    categorias.value = []
 
     const s = slug.value.trim()
     if (!s) {
@@ -55,8 +68,6 @@ export function useTiendaCatalogo(
       loading.value = false
       return
     }
-
-    const catId = categoriaId?.value?.trim() || null
 
     try {
       const rNeg = await fetch(apiUrl(`/api/negocios/${encodeURIComponent(s)}`))
@@ -71,12 +82,12 @@ export function useTiendaCatalogo(
 
       await cargarCategorias(s)
 
+      const catId = categoriaId?.value?.trim()
       if (catId && !categorias.value.some((c) => c.id === catId)) {
         if (categoriaId) categoriaId.value = null
       }
 
-      const filtro = categoriaId?.value?.trim() || null
-      await cargarProductos(s, filtro)
+      await cargarProductos(s)
     } catch {
       error.value =
         'No se pudo conectar con la API. ¿Está el backend en el puerto 5037 y el front con npm run dev?'
@@ -86,12 +97,12 @@ export function useTiendaCatalogo(
   }
 
   watch(
-    [slug, () => categoriaId?.value ?? null],
+    [slug, () => categoriaId?.value ?? null, () => buscar?.value ?? '', () => pagina?.value ?? 1],
     () => {
       void cargar()
     },
     { immediate: true },
   )
 
-  return { negocio, categorias, productos, loading, error, cargar }
+  return { negocio, categorias, productos, total, totalPaginas, tamanoPagina, loading, error, cargar }
 }

@@ -247,6 +247,32 @@ onMounted(() => {
           <span class="admin-kpi-label">Pedidos pagados (30 días)</span>
           <strong class="admin-kpi-val">{{ resumen.pedidosPagadosVentana }}</strong>
         </div>
+        <div class="admin-kpi">
+          <span class="admin-kpi-label">Ticket promedio (30 días)</span>
+          <strong class="admin-kpi-val">{{ precioFmt.format(resumen.ticketPromedioVentana) }}</strong>
+        </div>
+      </section>
+
+      <section v-if="resumen.productosTop?.length" class="admin-card admin-top-productos">
+        <h2>Top productos (30 días)</h2>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Unidades</th>
+                <th>Ingresos</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="p in resumen.productosTop" :key="p.productoId">
+                <td>{{ p.nombre }}</td>
+                <td>{{ p.cantidadVendida }}</td>
+                <td>{{ precioFmt.format(p.montoTotal) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <div class="admin-charts">
@@ -260,3 +286,13 @@ onMounted(() => {
     </template>
   </div>
 </template>
+
+<style scoped>
+.admin-top-productos {
+  margin-top: 1.25rem;
+}
+.admin-top-productos h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+</style>

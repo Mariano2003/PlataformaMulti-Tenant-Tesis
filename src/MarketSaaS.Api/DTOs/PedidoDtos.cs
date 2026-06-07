@@ -64,3 +64,14 @@ public class PedidoResponse
     public string? ClienteTelefono { get; set; }
     public DateTime CreadoEn { get; set; }
 }
+
+public class ActualizarEstadoPedidoRequest
+{
+    [Required, MaxLength(40)]
+    public string Estado { get; set; } = null!;
+}
+
+public class PedidoNovedadesResponse
+{
+    public int PedidosPagadosNuevos { get; set; }
+}

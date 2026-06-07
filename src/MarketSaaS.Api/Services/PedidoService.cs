@@ -271,4 +271,43 @@ public sealed class PedidoService : IPedidoService
         Pedido? pedido = await _pedidos.Find(p => p.Id == id && p.NegocioId == negocioId).FirstOrDefaultAsync(ct);
         return pedido;
     }
+
+    public async Task<Pedido?> ActualizarEstadoAdminAsync(
+        string negocioId,
+        string pedidoId,
+        string nuevoEstado,
+        CancellationToken ct = default)
+    {
+        var estado = nuevoEstado.Trim();
+        if (!PedidoEstados.EstadosGestionAdmin.Contains(estado))
+            throw new ArgumentException($"Estado no permitido: {estado}.");
+
+        var pedido = await ObtenerPorIdYNegocioAsync(pedidoId, negocioId, ct);
+        if (pedido is null)
+            return null;
+
+        if (!PedidoEstados.AdminPuedeGestionar(pedido.Estado))
+            throw new InvalidOperationException($"No se puede cambiar el estado desde «{pedido.Estado}».");
+
+        if (pedido.Estado == estado)
+            return pedido;
+
+        await _pedidos.UpdateOneAsync(
+            p => p.Id == pedidoId && p.NegocioId == negocioId,
+            Builders<Pedido>.Update.Set(p => p.Estado, estado),
+            cancellationToken: ct);
+
+        pedido.Estado = estado;
+        return pedido;
+    }
+
+    public async Task<int> ContarPedidosPagadosDesdeAsync(string negocioId, DateTime desdeUtc, CancellationToken ct = default)
+    {
+        var filtro = Builders<Pedido>.Filter.And(
+            Builders<Pedido>.Filter.Eq(p => p.NegocioId, negocioId),
+            Builders<Pedido>.Filter.Eq(p => p.Estado, PedidoEstados.Pagado),
+            Builders<Pedido>.Filter.Gt(p => p.CreadoEn, desdeUtc));
+
+        return (int)await _pedidos.CountDocumentsAsync(filtro, cancellationToken: ct);
+    }
 }

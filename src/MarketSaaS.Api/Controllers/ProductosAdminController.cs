@@ -38,7 +38,7 @@ public class ProductosAdminController : ControllerBase
             return NotFound();
 
         var (items, total) = await _productos.ListarPorNegocioPaginadoAsync(
-            negocio.Id, soloActivos: false, categoriaId, pagina, tamano, ct);
+            negocio.Id, soloActivos: false, categoriaId, buscar: null, pagina, tamano, ct);
         var (p, t, _) = PaginacionConsulta.Normalizar(pagina, tamano);
         var respuesta = PaginacionConsulta.Armar(items.Select(Map).ToList(), p, t, total);
         return Ok(respuesta);

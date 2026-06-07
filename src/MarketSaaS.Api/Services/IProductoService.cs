@@ -15,6 +15,7 @@ public interface IProductoService
         string negocioId,
         bool soloActivos,
         string? categoriaId,
+        string? buscar,
         int pagina,
         int tamano,
         CancellationToken ct = default);
