@@ -230,6 +230,24 @@ public sealed class PedidoService : IPedidoService
             .ToListAsync(ct);
     }
 
+    public async Task<(IReadOnlyList<Pedido> Items, long Total)> ListarPorNegocioPaginadoAsync(
+        string negocioId,
+        int pagina,
+        int tamano,
+        CancellationToken ct = default)
+    {
+        var (p, t, skip) = PaginacionConsulta.Normalizar(pagina, tamano);
+        var filtro = Builders<Pedido>.Filter.Eq(pedido => pedido.NegocioId, negocioId);
+        var total = await _pedidos.CountDocumentsAsync(filtro, cancellationToken: ct);
+        var items = await _pedidos
+            .Find(filtro)
+            .SortByDescending(pedido => pedido.CreadoEn)
+            .Skip(skip)
+            .Limit(t)
+            .ToListAsync(ct);
+        return (items, total);
+    }
+
     public async Task<IReadOnlyList<Pedido>> ListarPorClienteEmailAsync(string clienteEmail, int limite, CancellationToken ct = default)
     {
         var emailNorm = clienteEmail.Trim().ToLowerInvariant();

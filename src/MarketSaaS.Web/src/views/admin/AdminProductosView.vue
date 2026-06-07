@@ -2,10 +2,12 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AdminNav from '../../components/admin/AdminNav.vue'
+import AdminPaginacion from '../../components/admin/AdminPaginacion.vue'
 import { useAuthedFetch } from '../../composables/useAuthedFetch'
 import { useAuthStore } from '../../stores/auth'
 import type { CategoriaAdminDto, ProductoAdminDto } from '../../types/api'
 import { normalizarProductoAdminDto } from '../../utils/normalizarProductoApi'
+import { parsePaginaResponse } from '../../utils/parsePaginaResponse'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,6 +18,10 @@ const slug = computed(() => (route.params.slug as string) || '')
 
 const productos = ref<ProductoAdminDto[]>([])
 const categorias = ref<CategoriaAdminDto[]>([])
+const pagina = ref(1)
+const totalPaginas = ref(1)
+const total = ref(0)
+const tamanoPagina = 20
 const cargando = ref(true)
 const error = ref<string | null>(null)
 const guardando = ref(false)
@@ -120,7 +126,7 @@ async function manejar401() {
   })
 }
 
-async function cargarTodo() {
+async function cargarTodo(paginaDestino = pagina.value) {
   cargando.value = true
   error.value = null
   productos.value = []
@@ -134,8 +140,10 @@ async function cargarTodo() {
   }
   try {
     const [rProd, rCat] = await Promise.all([
-      authedFetch(`${baseUrl()}/admin/productos`),
-      authedFetch(`${baseUrl()}/admin/categorias`),
+      authedFetch(
+        `${baseUrl()}/admin/productos?pagina=${paginaDestino}&tamano=${tamanoPagina}`,
+      ),
+      authedFetch(`${baseUrl()}/admin/categorias?pagina=1&tamano=200`),
     ])
     if (rProd.status === 401 || rCat.status === 401) {
       await manejar401()
@@ -153,11 +161,13 @@ async function cargarTodo() {
       error.value = `Error categorías ${rCat.status}`
       return
     }
-    const rawProds = (await rProd.json()) as unknown
-    productos.value = Array.isArray(rawProds)
-      ? rawProds.map((x) => normalizarProductoAdminDto(x as Record<string, unknown>))
-      : []
-    categorias.value = (await rCat.json()) as CategoriaAdminDto[]
+    const paginado = parsePaginaResponse(await rProd.json(), normalizarProductoAdminDto)
+    productos.value = paginado.items
+    pagina.value = paginado.pagina
+    totalPaginas.value = paginado.totalPaginas
+    total.value = paginado.total
+    const catPaginado = parsePaginaResponse<CategoriaAdminDto>(await rCat.json())
+    categorias.value = catPaginado.items
     if (productoEdicion.value) {
       const actualizado = productos.value.find((x) => x.id === productoEdicion.value!.id)
       productoEdicion.value = actualizado ?? null
@@ -168,6 +178,16 @@ async function cargarTodo() {
   } finally {
     cargando.value = false
   }
+}
+
+function paginaAnterior() {
+  if (pagina.value <= 1) return
+  void cargarTodo(pagina.value - 1)
+}
+
+function paginaSiguiente() {
+  if (pagina.value >= totalPaginas.value) return
+  void cargarTodo(pagina.value + 1)
 }
 
 function sincronizarEdicionDesdeProducto(p: ProductoAdminDto) {
@@ -369,7 +389,8 @@ async function crearProducto() {
     nuevo.stock = '0'
     nuevo.categoriaId = ''
     formMsg.value = 'Producto creado.'
-    await cargarTodo()
+    pagina.value = 1
+    await cargarTodo(1)
   } catch {
     formMsg.value = 'Error de red al guardar.'
   } finally {
@@ -417,7 +438,7 @@ onMounted(() => {
         </p>
       </div>
       <div class="admin-actions">
-        <button type="button" class="btn-ghost" @click="cargarTodo">Actualizar</button>
+        <button type="button" class="btn-ghost" @click="() => void cargarTodo()">Actualizar</button>
         <button type="button" class="btn-ghost" @click="salir">Salir</button>
       </div>
     </header>
@@ -587,6 +608,14 @@ onMounted(() => {
           </tbody>
         </table>
       </div>
+      <AdminPaginacion
+        :pagina="pagina"
+        :total-paginas="totalPaginas"
+        :total="total"
+        :cargando="cargando"
+        @anterior="paginaAnterior"
+        @siguiente="paginaSiguiente"
+      />
 
       <div v-if="productoEdicion" class="admin-card panel-edicion">
         <div class="panel-edicion__head">

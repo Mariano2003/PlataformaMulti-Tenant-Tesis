@@ -3,13 +3,16 @@ defineProps<{
   loading: boolean
   error: string | null
   sinProductos: boolean
+  mensajeSinProductos?: string
 }>()
 </script>
 
 <template>
   <p v-if="loading" class="estado">Cargando…</p>
   <p v-else-if="error" class="estado error">{{ error }}</p>
-  <p v-else-if="sinProductos" class="estado">No hay productos activos en esta tienda.</p>
+  <p v-else-if="sinProductos" class="estado">
+    {{ mensajeSinProductos ?? 'No hay productos activos en esta tienda.' }}
+  </p>
 </template>
 
 <style scoped>

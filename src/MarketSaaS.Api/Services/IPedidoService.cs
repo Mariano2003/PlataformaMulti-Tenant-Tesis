@@ -23,6 +23,12 @@ public interface IPedidoService
 
     Task<IReadOnlyList<Pedido>> ListarPorNegocioAsync(string negocioId, int limite, CancellationToken ct = default);
 
+    Task<(IReadOnlyList<Pedido> Items, long Total)> ListarPorNegocioPaginadoAsync(
+        string negocioId,
+        int pagina,
+        int tamano,
+        CancellationToken ct = default);
+
     /// <summary>Pedidos cuyo <see cref="Pedido.ClienteEmail"/> coincide (comparación sin distinguir mayúsculas).</summary>
     Task<IReadOnlyList<Pedido>> ListarPorClienteEmailAsync(string clienteEmail, int limite, CancellationToken ct = default);
 

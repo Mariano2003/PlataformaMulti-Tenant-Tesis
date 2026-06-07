@@ -1,13 +1,12 @@
 ﻿<script setup lang="ts">
 import { HubConnectionState } from '@microsoft/signalr'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import AdminNav from '../../components/admin/AdminNav.vue'
 import { createChatHub, type ChatMensajeDto } from '../../composables/useChatHub'
 import { useAuthStore } from '../../stores/auth'
 
 const route = useRoute()
-const router = useRouter()
 const auth = useAuthStore()
 
 const slug = computed(() => (route.params.slug as string) || '')

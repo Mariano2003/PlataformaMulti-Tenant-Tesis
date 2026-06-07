@@ -11,6 +11,14 @@ public interface IProductoService
         string? categoriaId,
         CancellationToken ct = default);
 
+    Task<(IReadOnlyList<Producto> Items, long Total)> ListarPorNegocioPaginadoAsync(
+        string negocioId,
+        bool soloActivos,
+        string? categoriaId,
+        int pagina,
+        int tamano,
+        CancellationToken ct = default);
+
     Task<Producto?> ObtenerPorIdYNegocioAsync(string id, string negocioId, bool soloActivos, CancellationToken ct = default);
 
     Task<Producto> CrearAsync(string negocioId, CrearProductoRequest dto, CancellationToken ct = default);
