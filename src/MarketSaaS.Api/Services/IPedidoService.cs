@@ -6,7 +6,11 @@ namespace MarketSaaS.Api.Services;
 public interface IPedidoService
 {
     /// <summary>Crea pedido en <see cref="PedidoEstados.PendientePago"/> sin descontar stock (Checkout Pro + webhook).</summary>
-    Task<Pedido> CrearPendienteDePagoAsync(string negocioId, CrearPedidoRequest solicitud, CancellationToken ct = default);
+    Task<Pedido> CrearPendienteDePagoAsync(
+        string negocioId,
+        CrearPedidoRequest solicitud,
+        string? clienteUsuarioId = null,
+        CancellationToken ct = default);
 
     /// <summary>Guarda el id de preferencia MP en el pedido pendiente.</summary>
     Task<bool> AsociarPreferenciaMercadoPagoAsync(string negocioId, string pedidoId, string preferenceId, CancellationToken ct = default);
@@ -29,8 +33,12 @@ public interface IPedidoService
         int tamano,
         CancellationToken ct = default);
 
-    /// <summary>Pedidos cuyo <see cref="Pedido.ClienteEmail"/> coincide (comparación sin distinguir mayúsculas).</summary>
-    Task<IReadOnlyList<Pedido>> ListarPorClienteEmailAsync(string clienteEmail, int limite, CancellationToken ct = default);
+    /// <summary>Pedidos del cliente por email y/o <see cref="Pedido.ClienteUsuarioId"/>.</summary>
+    Task<IReadOnlyList<Pedido>> ListarPorClienteAsync(
+        string? clienteEmail,
+        string? clienteUsuarioId,
+        int limite,
+        CancellationToken ct = default);
 
     Task<Pedido?> ObtenerPorIdYNegocioAsync(string id, string negocioId, CancellationToken ct = default);
 

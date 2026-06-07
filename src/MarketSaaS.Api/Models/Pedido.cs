@@ -99,6 +99,12 @@ public class Pedido
     [BsonElement("clienteEmail")]
     public string? ClienteEmail { get; set; }
 
+    /// <summary>Usuario portal (Cliente/SuperAdmin) que creó el pedido, si estaba logueado al comprar.</summary>
+    [BsonElement("clienteUsuarioId")]
+    [BsonRepresentation(BsonType.ObjectId)]
+    [BsonIgnoreIfNull]
+    public string? ClienteUsuarioId { get; set; }
+
     [BsonElement("clienteTelefono")]
     public string? ClienteTelefono { get; set; }
 

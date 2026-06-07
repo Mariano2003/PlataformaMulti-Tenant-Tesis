@@ -1,8 +1,10 @@
+using System.Security.Claims;
 using MarketSaaS.Api.DTOs;
 using MarketSaaS.Api.Models;
 using MarketSaaS.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using JwtRegisteredClaimNames = System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames;
 
 namespace MarketSaaS.Api.Controllers;
 
@@ -43,7 +45,11 @@ public class PedidosPublicosController : ControllerBase
 
         try
         {
-            var pedidoCreado = await _pedidos.CrearPendienteDePagoAsync(negocio.Id, solicitud, ct);
+            var (clienteUsuarioId, emailCuenta) = ResolverClienteAutenticado();
+            if (!string.IsNullOrWhiteSpace(emailCuenta))
+                solicitud.ClienteEmail = emailCuenta;
+
+            var pedidoCreado = await _pedidos.CrearPendienteDePagoAsync(negocio.Id, solicitud, clienteUsuarioId, ct);
             return CreatedAtAction(nameof(PedidosAdminController.PorId), "PedidosAdmin", new { slug = negocio.Slug, id = pedidoCreado.Id }, Map(pedidoCreado));
         }
         catch (ArgumentException ex)
@@ -110,6 +116,26 @@ public class PedidosPublicosController : ControllerBase
             return BadRequest(new { error = ex.Message });
         }
     }
+
+    private static (string? usuarioId, string? email) ResolverClienteAutenticado(ClaimsPrincipal user)
+    {
+        if (user.Identity?.IsAuthenticated != true)
+            return (null, null);
+
+        var rol = user.FindFirstValue(ClaimTypes.Role);
+        if (rol is not ("Cliente" or "SuperAdmin"))
+            return (null, null);
+
+        var email = user.FindFirstValue(ClaimTypes.Email)
+            ?? user.FindFirstValue(JwtRegisteredClaimNames.Email);
+        var usuarioId = user.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? user.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+        return (usuarioId?.Trim(), email?.Trim());
+    }
+
+    private (string? usuarioId, string? email) ResolverClienteAutenticado() =>
+        ResolverClienteAutenticado(User);
 
     private static PedidoResponse Map(Pedido pedido) => new()
     {

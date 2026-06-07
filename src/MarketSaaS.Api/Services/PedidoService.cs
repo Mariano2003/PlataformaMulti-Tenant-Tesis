@@ -18,7 +18,11 @@ public sealed class PedidoService : IPedidoService
         _productos = db.GetCollection<Producto>(CollectionNames.Productos);
     }
 
-    public async Task<Pedido> CrearPendienteDePagoAsync(string negocioId, CrearPedidoRequest solicitud, CancellationToken ct = default)
+    public async Task<Pedido> CrearPendienteDePagoAsync(
+        string negocioId,
+        CrearPedidoRequest solicitud,
+        string? clienteUsuarioId = null,
+        CancellationToken ct = default)
     {
         if (solicitud.Lineas is null || solicitud.Lineas.Count == 0)
             throw new ArgumentException("El pedido debe incluir al menos una línea.");
@@ -38,6 +42,7 @@ public sealed class PedidoService : IPedidoService
             Total = totalPedido,
             ClienteNombre = solicitud.ClienteNombre?.Trim(),
             ClienteEmail = emailCliente,
+            ClienteUsuarioId = string.IsNullOrWhiteSpace(clienteUsuarioId) ? null : clienteUsuarioId.Trim(),
             ClienteTelefono = solicitud.ClienteTelefono?.Trim(),
             CreadoEn = DateTime.UtcNow,
         };
@@ -248,16 +253,31 @@ public sealed class PedidoService : IPedidoService
         return (items, total);
     }
 
-    public async Task<IReadOnlyList<Pedido>> ListarPorClienteEmailAsync(string clienteEmail, int limite, CancellationToken ct = default)
+    public async Task<IReadOnlyList<Pedido>> ListarPorClienteAsync(
+        string? clienteEmail,
+        string? clienteUsuarioId,
+        int limite,
+        CancellationToken ct = default)
     {
-        var emailNorm = clienteEmail.Trim().ToLowerInvariant();
-        if (string.IsNullOrEmpty(emailNorm))
+        var cantidadMaxima = Math.Clamp(limite, 1, 200);
+        var filtros = new List<FilterDefinition<Pedido>>();
+
+        var emailNorm = clienteEmail?.Trim().ToLowerInvariant();
+        if (!string.IsNullOrEmpty(emailNorm))
+        {
+            filtros.Add(Builders<Pedido>.Filter.Regex(
+                p => p.ClienteEmail,
+                new BsonRegularExpression($"^{Regex.Escape(emailNorm)}$", "i")));
+        }
+
+        var usuarioId = clienteUsuarioId?.Trim();
+        if (!string.IsNullOrEmpty(usuarioId))
+            filtros.Add(Builders<Pedido>.Filter.Eq(p => p.ClienteUsuarioId, usuarioId));
+
+        if (filtros.Count == 0)
             return Array.Empty<Pedido>();
 
-        var cantidadMaxima = Math.Clamp(limite, 1, 200);
-        var filtro = Builders<Pedido>.Filter.Regex(
-            p => p.ClienteEmail,
-            new BsonRegularExpression($"^{Regex.Escape(emailNorm)}$", "i"));
+        var filtro = filtros.Count == 1 ? filtros[0] : Builders<Pedido>.Filter.Or(filtros);
 
         return await _pedidos
             .Find(filtro)
