@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { apiUrl } from '../config/api'
+import { useAuthedFetch } from '../composables/useAuthedFetch'
 import { useCarritoStore } from '../stores/carrito'
+import { useAuthStore } from '../stores/auth'
 import { usePrecioFmt } from '../composables/usePrecioFmt'
 import type { PedidoCreadoDto, PreferenciaMercadoPagoDto } from '../types/api'
 
 const route = useRoute()
 const carrito = useCarritoStore()
+const auth = useAuthStore()
+const authedFetch = useAuthedFetch()
 const precioFmt = usePrecioFmt()
 
 const slug = computed(() => (route.params.slug as string) || '')
@@ -25,6 +28,26 @@ const slugOk = computed(
     carrito.slugTienda === slug.value &&
     carrito.items.length > 0,
 )
+
+const emailDeCuenta = computed(() => {
+  const u = auth.usuario
+  if (!u || (u.rol !== 'Cliente' && u.rol !== 'SuperAdmin')) return null
+  return u.email.trim()
+})
+
+const compraConCuenta = computed(() => Boolean(emailDeCuenta.value))
+
+function aplicarDatosDeCuenta() {
+  if (!emailDeCuenta.value) return
+  clienteEmail.value = emailDeCuenta.value
+  if (auth.usuario?.nombre && !clienteNombre.value.trim()) {
+    clienteNombre.value = auth.usuario.nombre
+  }
+}
+
+watch(emailDeCuenta, () => aplicarDatosDeCuenta())
+
+onMounted(() => aplicarDatosDeCuenta())
 
 watch(slug, (s) => {
   if (s.trim()) carrito.setTienda(s)
@@ -57,8 +80,8 @@ async function confirmarPedido() {
       clienteTelefono: clienteTelefono.value.trim() || null,
     }
 
-    const rPedido = await fetch(
-      apiUrl(`/api/negocios/${encodeURIComponent(slug.value)}/pedidos`),
+    const rPedido = await authedFetch(
+      `/api/negocios/${encodeURIComponent(slug.value)}/pedidos`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -73,10 +96,8 @@ async function confirmarPedido() {
 
     const pedido = (await rPedido.json()) as PedidoCreadoDto
 
-    const rPref = await fetch(
-      apiUrl(
-        `/api/negocios/${encodeURIComponent(slug.value)}/pedidos/${encodeURIComponent(pedido.id)}/mercadopago/preferencia`,
-      ),
+    const rPref = await authedFetch(
+      `/api/negocios/${encodeURIComponent(slug.value)}/pedidos/${encodeURIComponent(pedido.id)}/mercadopago/preferencia`,
       { method: 'POST' },
     )
 
@@ -164,6 +185,15 @@ async function confirmarPedido() {
 
       <section class="checkout-card">
         <h2>Datos del cliente</h2>
+        <p v-if="compraConCuenta" class="checkout-hint checkout-hint--ok">
+          Comprás con tu cuenta ({{ emailDeCuenta }}). El pedido aparecerá en
+          <RouterLink :to="{ name: 'mis-pedidos' }">Mis pedidos</RouterLink>.
+        </p>
+        <p v-else class="checkout-hint">
+          Para ver el pedido en
+          <RouterLink :to="{ name: 'portal-login', query: { redirect: route.fullPath } }">Mis pedidos</RouterLink>,
+          iniciá sesión antes de pagar o usá el mismo email de tu cuenta.
+        </p>
         <label class="checkout-field">
           <span>Nombre</span>
           <input v-model="clienteNombre" type="text" maxlength="120" autocomplete="name" />
@@ -176,6 +206,7 @@ async function confirmarPedido() {
             required
             maxlength="200"
             autocomplete="email"
+            :readonly="compraConCuenta"
           />
         </label>
         <label class="checkout-field">
@@ -247,5 +278,11 @@ async function confirmarPedido() {
 }
 .req {
   color: #b91c1c;
+}
+.checkout-hint--ok {
+  color: #065f46;
+  background: #ecfdf5;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-sm);
 }
 </style>

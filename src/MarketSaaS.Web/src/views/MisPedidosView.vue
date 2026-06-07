@@ -145,9 +145,11 @@ onUnmounted(() => {
     <p v-if="cargando" class="mis-pedidos__state">Cargando pedidos…</p>
     <p v-else-if="error" class="mis-pedidos__state mis-pedidos__state--err">{{ error }}</p>
     <p v-else-if="!pedidos.length" class="mis-pedidos__state">
-      Todavía no tenés pedidos. Elegí una
-      <RouterLink :to="{ name: 'tiendas' }">tienda</RouterLink>
-      y comprá con el mismo email de tu cuenta.
+      Todavía no tenés pedidos asociados a esta cuenta. Si compraste sin iniciar sesión, el pedido
+      quedó ligado al email que pusiste en el checkout (tiene que coincidir con
+      <strong>{{ auth.usuario?.email }}</strong>).
+      <RouterLink :to="{ name: 'tiendas' }">Elegí una tienda</RouterLink>
+      e iniciá sesión antes de pagar para que aparezca acá automáticamente.
     </p>
 
     <ul v-else class="mis-pedidos__list">

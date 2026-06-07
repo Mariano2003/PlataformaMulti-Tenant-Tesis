@@ -32,10 +32,12 @@ public sealed class MisPedidosController : ControllerBase
     {
         var email = User.FindFirstValue(ClaimTypes.Email)
             ?? User.FindFirstValue(JwtRegisteredClaimNames.Email);
-        if (string.IsNullOrWhiteSpace(email))
+        var usuarioId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        if (string.IsNullOrWhiteSpace(email) && string.IsNullOrWhiteSpace(usuarioId))
             return Unauthorized();
 
-        var pedidos = await _pedidos.ListarPorClienteEmailAsync(email, limite, ct);
+        var pedidos = await _pedidos.ListarPorClienteAsync(email, usuarioId, limite, ct);
         if (pedidos.Count == 0)
             return Ok(Array.Empty<PedidoClienteListItemResponse>());
 

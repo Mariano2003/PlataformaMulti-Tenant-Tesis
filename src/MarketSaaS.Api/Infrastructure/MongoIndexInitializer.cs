@@ -87,6 +87,7 @@ public sealed class MongoIndexInitializer : IHostedService
         try
         {
             await MigrarLineasPedidosAsync(db, _log, cancellationToken);
+            await MigrarCamposClientePedidosAsync(db, _log, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -106,6 +107,10 @@ public sealed class MongoIndexInitializer : IHostedService
         await pedidos.Indexes.CreateOneAsync(
             new CreateIndexModel<Pedido>(
                 Builders<Pedido>.IndexKeys.Ascending(p => p.ClienteEmail).Descending(p => p.CreadoEn)),
+            cancellationToken: cancellationToken);
+        await pedidos.Indexes.CreateOneAsync(
+            new CreateIndexModel<Pedido>(
+                Builders<Pedido>.IndexKeys.Ascending(p => p.ClienteUsuarioId).Descending(p => p.CreadoEn)),
             cancellationToken: cancellationToken);
 
         if (!nombresColecciones.Contains(CollectionNames.ChatMensajes))
@@ -143,6 +148,25 @@ public sealed class MongoIndexInitializer : IHostedService
             cancellationToken: cancellationToken);
 
         _log.LogInformation("Índices MongoDB verificados/creados.");
+    }
+
+    private static async Task MigrarCamposClientePedidosAsync(
+        IMongoDatabase db,
+        ILogger log,
+        CancellationToken cancellationToken)
+    {
+        var col = db.GetCollection<BsonDocument>(CollectionNames.Pedidos);
+
+        var renombrados = await col.UpdateManyAsync(
+            Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.Exists("ClienteEmail", true),
+                Builders<BsonDocument>.Filter.Not(Builders<BsonDocument>.Filter.Exists("clienteEmail", true))),
+            Builders<BsonDocument>.Update.Rename("ClienteEmail", "clienteEmail"),
+            cancellationToken: cancellationToken);
+        if (renombrados.ModifiedCount > 0)
+            log.LogInformation(
+                "Pedidos: migrados {N} documentos (campo BSON ClienteEmail → clienteEmail).",
+                renombrados.ModifiedCount);
     }
 
     private static async Task MigrarLineasPedidosAsync(
