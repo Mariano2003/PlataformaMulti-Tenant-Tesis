@@ -152,7 +152,7 @@ export function etiquetaEstadoPedido(estado: string) {
     PendientePago: 'Pendiente de pago',
     ProcesandoPago: 'Procesando pago',
     Pagado: 'Pagado',
-    Rechazado: 'Rechazado',
+    Rechazado: 'Pago rechazado',
     Confirmado: 'Confirmado',
     EnPreparacion: 'En preparación',
     Enviado: 'Enviado',
@@ -160,6 +160,38 @@ export function etiquetaEstadoPedido(estado: string) {
     Cancelado: 'Cancelado',
   }
   return map[estado] ?? estado
+}
+
+export const PASOS_SEGUIMIENTO_PEDIDO = [
+  { clave: 'Pagado', etiqueta: 'Pagado' },
+  { clave: 'EnPreparacion', etiqueta: 'Preparando' },
+  { clave: 'Enviado', etiqueta: 'En camino' },
+  { clave: 'Entregado', etiqueta: 'Entregado' },
+] as const
+
+/** Índice del paso actual en el seguimiento post-pago (-1 si no aplica). */
+export function indiceSeguimientoPedido(estado: string): number {
+  if (estado === 'Confirmado') return 0
+  return PASOS_SEGUIMIENTO_PEDIDO.findIndex((p) => p.clave === estado)
+}
+
+export function pedidoMuestraSeguimiento(estado: string) {
+  return indiceSeguimientoPedido(estado) >= 0
+}
+
+export function pedidoDebeAutoActualizar(estado: string) {
+  return !['Entregado', 'Rechazado', 'Cancelado'].includes(estado)
+}
+
+export type ClaseEstadoPedidoCliente = 'ok' | 'err' | 'pending' | 'progress' | 'neutral'
+
+export function claseEstadoPedidoCliente(estado: string): ClaseEstadoPedidoCliente {
+  if (estado === 'Entregado') return 'ok'
+  if (estado === 'Pagado' || estado === 'Confirmado') return 'ok'
+  if (estado === 'EnPreparacion' || estado === 'Enviado') return 'progress'
+  if (estado === 'Rechazado' || estado === 'Cancelado') return 'err'
+  if (estado === 'PendientePago' || estado === 'ProcesandoPago') return 'pending'
+  return 'neutral'
 }
 
 /** `ProductoResponse` admin (incluye inactivos). */

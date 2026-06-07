@@ -1,17 +1,27 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useAuthedFetch } from '../composables/useAuthedFetch'
 import { useAuthStore } from '../stores/auth'
 import type { PedidoClienteListItemDto } from '../types/api'
+import {
+  PASOS_SEGUIMIENTO_PEDIDO,
+  claseEstadoPedidoCliente,
+  etiquetaEstadoPedido,
+  indiceSeguimientoPedido,
+  pedidoDebeAutoActualizar,
+  pedidoMuestraSeguimiento,
+} from '../types/api'
 
 const auth = useAuthStore()
 const authedFetch = useAuthedFetch()
 
 const pedidos = ref<PedidoClienteListItemDto[]>([])
 const cargando = ref(true)
+const refrescando = ref(false)
 const error = ref<string | null>(null)
 const expandidoId = ref<string | null>(null)
+const ultimaActualizacion = ref<Date | null>(null)
 
 const precioFmt = new Intl.NumberFormat('es-AR', {
   style: 'currency',
@@ -19,22 +29,25 @@ const precioFmt = new Intl.NumberFormat('es-AR', {
   maximumFractionDigits: 2,
 })
 
-const etiquetasEstado: Record<string, string> = {
-  PendientePago: 'Pendiente de pago',
-  ProcesandoPago: 'Procesando pago',
-  Pagado: 'Pagado',
-  Rechazado: 'Pago rechazado',
-  Confirmado: 'Confirmado',
-}
+const hayPedidosActivos = computed(() =>
+  pedidos.value.some((p) => pedidoDebeAutoActualizar(p.estado)),
+)
 
-function etiquetaEstado(estado: string) {
-  return etiquetasEstado[estado] ?? estado
-}
+const textoUltimaActualizacion = computed(() => {
+  if (!ultimaActualizacion.value) return null
+  return ultimaActualizacion.value.toLocaleTimeString('es-AR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
+})
 
-function claseEstado(estado: string) {
-  if (estado === 'Pagado' || estado === 'Confirmado') return 'mis-pedidos__pill--ok'
-  if (estado === 'Rechazado') return 'mis-pedidos__pill--err'
-  if (estado === 'PendientePago' || estado === 'ProcesandoPago') return 'mis-pedidos__pill--pending'
+function clasePill(estado: string) {
+  const c = claseEstadoPedidoCliente(estado)
+  if (c === 'ok') return 'mis-pedidos__pill--ok'
+  if (c === 'err') return 'mis-pedidos__pill--err'
+  if (c === 'pending') return 'mis-pedidos__pill--pending'
+  if (c === 'progress') return 'mis-pedidos__pill--progress'
   return ''
 }
 
@@ -53,10 +66,22 @@ function toggleDetalle(id: string) {
   expandidoId.value = expandidoId.value === id ? null : id
 }
 
-async function cargar() {
-  cargando.value = true
+function pasoCompletado(pasoIdx: number, estado: string) {
+  const actual = indiceSeguimientoPedido(estado)
+  return actual >= pasoIdx
+}
+
+function pasoActual(pasoIdx: number, estado: string) {
+  return indiceSeguimientoPedido(estado) === pasoIdx
+}
+
+async function cargar(silencioso = false) {
+  if (silencioso) refrescando.value = true
+  else {
+    cargando.value = true
+    pedidos.value = []
+  }
   error.value = null
-  pedidos.value = []
   try {
     const res = await authedFetch('/api/mis-pedidos?limite=50')
     if (res.status === 401) {
@@ -64,20 +89,33 @@ async function cargar() {
       return
     }
     if (!res.ok) {
-      error.value = `No se pudieron cargar tus pedidos (${res.status}).`
+      if (!silencioso) {
+        error.value = `No se pudieron cargar tus pedidos (${res.status}).`
+      }
       return
     }
     const raw = (await res.json()) as unknown
     pedidos.value = Array.isArray(raw) ? (raw as PedidoClienteListItemDto[]) : []
+    ultimaActualizacion.value = new Date()
   } catch {
-    error.value = 'No se pudo conectar con la API.'
+    if (!silencioso) error.value = 'No se pudo conectar con la API.'
   } finally {
     cargando.value = false
+    refrescando.value = false
   }
 }
 
+let intervalo: ReturnType<typeof setInterval> | null = null
+
 onMounted(() => {
   void cargar()
+  intervalo = setInterval(() => {
+    if (hayPedidosActivos.value) void cargar(true)
+  }, 12_000)
+})
+
+onUnmounted(() => {
+  if (intervalo) clearInterval(intervalo)
 })
 </script>
 
@@ -89,9 +127,16 @@ onMounted(() => {
         <p class="mis-pedidos__sub">
           Compras asociadas a <strong>{{ auth.usuario?.email }}</strong>
         </p>
+        <p v-if="textoUltimaActualizacion && !cargando" class="mis-pedidos__sync">
+          <span v-if="refrescando">Actualizando estado…</span>
+          <span v-else-if="hayPedidosActivos">
+            Se actualiza solo · última consulta {{ textoUltimaActualizacion }}
+          </span>
+          <span v-else>Última consulta {{ textoUltimaActualizacion }}</span>
+        </p>
       </div>
       <div class="mis-pedidos__actions">
-        <button type="button" class="mis-pedidos__btn-ghost" :disabled="cargando" @click="cargar">
+        <button type="button" class="mis-pedidos__btn-ghost" :disabled="cargando" @click="() => void cargar()">
           Actualizar
         </button>
         <RouterLink class="mis-pedidos__btn-ghost" :to="{ name: 'tiendas' }">Mis tiendas</RouterLink>
@@ -122,12 +167,41 @@ onMounted(() => {
             <p class="mis-pedidos__fecha">{{ formatearFecha(p.creadoEn) }}</p>
           </div>
           <div class="mis-pedidos__card-meta">
-            <span class="mis-pedidos__pill" :class="claseEstado(p.estado)">
-              {{ etiquetaEstado(p.estado) }}
+            <span class="mis-pedidos__pill" :class="clasePill(p.estado)">
+              {{ etiquetaEstadoPedido(p.estado) }}
             </span>
             <span class="mis-pedidos__total">{{ precioFmt.format(p.total) }}</span>
           </div>
         </div>
+
+        <ol
+          v-if="pedidoMuestraSeguimiento(p.estado)"
+          class="mis-pedidos__seguimiento"
+          aria-label="Seguimiento del pedido"
+        >
+          <li
+            v-for="(paso, idx) in PASOS_SEGUIMIENTO_PEDIDO"
+            :key="paso.clave"
+            class="mis-pedidos__paso"
+            :class="{
+              'mis-pedidos__paso--hecho': pasoCompletado(idx, p.estado),
+              'mis-pedidos__paso--actual': pasoActual(idx, p.estado),
+            }"
+          >
+            <span class="mis-pedidos__paso-dot" aria-hidden="true" />
+            <span class="mis-pedidos__paso-label">{{ paso.etiqueta }}</span>
+          </li>
+        </ol>
+
+        <p v-else-if="p.estado === 'PendientePago' || p.estado === 'ProcesandoPago'" class="mis-pedidos__hint">
+          Esperando confirmación del pago. Esta pantalla se actualiza sola.
+        </p>
+        <p v-else-if="p.estado === 'Rechazado'" class="mis-pedidos__hint mis-pedidos__hint--err">
+          El pago no se completó. Podés volver a la tienda e intentar de nuevo.
+        </p>
+        <p v-else-if="p.estado === 'Cancelado'" class="mis-pedidos__hint mis-pedidos__hint--err">
+          Este pedido fue cancelado por la tienda.
+        </p>
 
         <button type="button" class="mis-pedidos__toggle" @click="toggleDetalle(p.id)">
           {{ expandidoId === p.id ? 'Ocultar detalle' : 'Ver productos' }}
@@ -167,6 +241,11 @@ onMounted(() => {
   margin: 0;
   color: var(--text);
   font-size: 0.95rem;
+}
+.mis-pedidos__sync {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 .mis-pedidos__actions {
   display: flex;
@@ -264,10 +343,80 @@ onMounted(() => {
   background: #fffbeb;
   color: #92400e;
 }
+.mis-pedidos__pill--progress {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
 .mis-pedidos__total {
   font-weight: 800;
   font-size: 1.1rem;
   color: var(--text-h);
+}
+.mis-pedidos__seguimiento {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0;
+  list-style: none;
+  margin: 0.85rem 0 0;
+  padding: 0;
+}
+.mis-pedidos__paso {
+  flex: 1 1 22%;
+  min-width: 4.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  position: relative;
+  text-align: center;
+}
+.mis-pedidos__paso:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 0.45rem;
+  left: calc(50% + 0.5rem);
+  width: calc(100% - 1rem);
+  height: 2px;
+  background: var(--border, #e5e7eb);
+  z-index: 0;
+}
+.mis-pedidos__paso--hecho:not(:last-child)::after {
+  background: #34d399;
+}
+.mis-pedidos__paso-dot {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong, #d1d5db);
+  background: var(--surface, #fff);
+  z-index: 1;
+}
+.mis-pedidos__paso--hecho .mis-pedidos__paso-dot {
+  border-color: #10b981;
+  background: #10b981;
+}
+.mis-pedidos__paso--actual .mis-pedidos__paso-dot {
+  border-color: #2563eb;
+  background: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+}
+.mis-pedidos__paso-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+.mis-pedidos__paso--hecho .mis-pedidos__paso-label,
+.mis-pedidos__paso--actual .mis-pedidos__paso-label {
+  color: var(--text-h);
+  font-weight: 600;
+}
+.mis-pedidos__hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.mis-pedidos__hint--err {
+  color: #b91c1c;
 }
 .mis-pedidos__toggle {
   margin-top: 0.75rem;
