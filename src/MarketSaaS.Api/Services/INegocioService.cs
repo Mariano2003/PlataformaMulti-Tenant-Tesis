@@ -22,4 +22,6 @@ public interface INegocioService
         string? userId,
         int? expiresInSeconds,
         CancellationToken ct = default);
+
+    Task DesconectarMercadoPagoOAuthAsync(string negocioId, CancellationToken ct = default);
 }

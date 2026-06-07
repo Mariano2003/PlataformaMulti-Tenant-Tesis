@@ -27,7 +27,11 @@ public class AnalyticsService : IAnalyticsService
         var dias = Enumerable.Range(0, 30).Select(i => inicio.AddDays(i)).ToList();
 
         static bool EsVentaContada(string estado) =>
-            estado == PedidoEstados.Pagado || estado == PedidoEstados.Confirmado;
+            estado is PedidoEstados.Pagado
+                or PedidoEstados.Confirmado
+                or PedidoEstados.EnPreparacion
+                or PedidoEstados.Enviado
+                or PedidoEstados.Entregado;
 
         static DateTime DiaUtc(DateTime t)
         {
@@ -35,7 +39,9 @@ public class AnalyticsService : IAnalyticsService
             return utc.Date;
         }
 
-        var pagadosVentana = todos.Where(p => EsVentaContada(p.Estado) && DiaUtc(p.CreadoEn) >= inicio && DiaUtc(p.CreadoEn) <= fin).ToList();
+        var pagadosVentana = todos
+            .Where(p => EsVentaContada(p.Estado) && DiaUtc(p.CreadoEn) >= inicio && DiaUtc(p.CreadoEn) <= fin)
+            .ToList();
 
         var ventasPorDia = dias.Select(d => new VentaPorDiaDto
         {
@@ -44,12 +50,31 @@ public class AnalyticsService : IAnalyticsService
             MontoTotal = pagadosVentana.Where(p => DiaUtc(p.CreadoEn) == d).Sum(p => p.Total),
         }).ToList();
 
+        var productosTop = pagadosVentana
+            .SelectMany(p => p.Lineas)
+            .GroupBy(l => new { l.ProductoId, l.Nombre })
+            .Select(g => new ProductoTopVentaDto
+            {
+                ProductoId = g.Key.ProductoId,
+                Nombre = g.Key.Nombre,
+                CantidadVendida = g.Sum(x => x.Cantidad),
+                MontoTotal = g.Sum(x => x.Subtotal),
+            })
+            .OrderByDescending(x => x.MontoTotal)
+            .Take(5)
+            .ToList();
+
+        var cantidadPagados = pagadosVentana.Count;
+        var montoTotal = pagadosVentana.Sum(p => p.Total);
+
         return new VentasResumenResponse
         {
             PedidosPorEstado = pedidosPorEstado,
-            MontoTotalVentana = pagadosVentana.Sum(p => p.Total),
-            PedidosPagadosVentana = pagadosVentana.Count,
+            MontoTotalVentana = montoTotal,
+            PedidosPagadosVentana = cantidadPagados,
             VentasPorDia = ventasPorDia,
+            TicketPromedioVentana = cantidadPagados > 0 ? montoTotal / cantidadPagados : 0,
+            ProductosTop = productosTop,
         };
     }
 }

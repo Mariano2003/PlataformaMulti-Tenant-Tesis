@@ -8,6 +8,7 @@ import { useAuthStore } from '../../stores/auth'
 import type { CategoriaAdminDto, ProductoAdminDto } from '../../types/api'
 import { normalizarProductoAdminDto } from '../../utils/normalizarProductoApi'
 import { parsePaginaResponse } from '../../utils/parsePaginaResponse'
+import { resolveImagenUrl } from '../../utils/resolveImagenUrl'
 
 const route = useRoute()
 const router = useRouter()
@@ -60,6 +61,7 @@ const edicion = reactive({
 /** Vista previa URL imagen: reset al cambiar el texto (debe ir después de `nuevo` / `edicion`). */
 const nuevoImagenPreviewFallo = ref(false)
 const edicionImagenPreviewFallo = ref(false)
+const subiendoImagen = ref(false)
 watch(
   () => nuevo.imagenUrl,
   () => {
@@ -74,11 +76,69 @@ watch(
 )
 
 function trimImagenUrl(s: string) {
-  return s
-    .trim()
-    .replace(/^\u200b+|\u200b+$/g, '')
-    .replace(/^['"]+|['"]+$/g, '')
-    .trim()
+  return resolveImagenUrl(
+    s
+      .trim()
+      .replace(/^\u200b+|\u200b+$/g, '')
+      .replace(/^['"]+|['"]+$/g, '')
+      .trim(),
+  )
+}
+
+async function subirImagen(archivo: File, destino: 'nuevo' | 'edicion') {
+  subiendoImagen.value = true
+  formMsg.value = null
+  tablaMsg.value = null
+  const s = slug.value
+  try {
+    const fd = new FormData()
+    fd.append('archivo', archivo)
+    const res = await authedFetch(
+      `/api/negocios/${encodeURIComponent(s)}/admin/archivos/imagen`,
+      { method: 'POST', body: fd },
+    )
+    if (res.status === 401) {
+      await manejar401()
+      return
+    }
+    if (!res.ok) {
+      try {
+        const j = (await res.json()) as { error?: string }
+        const err = j.error ?? `Error ${res.status}`
+        if (destino === 'nuevo') formMsg.value = err
+        else tablaMsg.value = err
+      } catch {
+        const err = `Error ${res.status}`
+        if (destino === 'nuevo') formMsg.value = err
+        else tablaMsg.value = err
+      }
+      return
+    }
+    const data = (await res.json()) as { url?: string }
+    if (!data.url) {
+      formMsg.value = 'La API no devolvió la URL de la imagen.'
+      return
+    }
+    if (destino === 'nuevo') {
+      nuevo.imagenUrl = data.url
+      nuevoImagenPreviewFallo.value = false
+    } else {
+      edicion.imagenUrl = data.url
+      edicionImagenPreviewFallo.value = false
+    }
+  } catch {
+    formMsg.value = 'Error de red al subir la imagen.'
+  } finally {
+    subiendoImagen.value = false
+  }
+}
+
+function onArchivoImagen(ev: Event, destino: 'nuevo' | 'edicion') {
+  const input = ev.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  void subirImagen(file, destino)
 }
 
 function baseUrl() {
@@ -492,10 +552,18 @@ onMounted(() => {
               />
             </label>
             <p class="admin-field-hint">
-              Pegá el enlace directo al archivo (termina en .jpg, .png, etc.). Los enlaces de
-              «compartir carpeta» de Drive suelen no servir. Para probar:
-              <code>https://picsum.photos/400/300</code>
+              Pegá el enlace directo o subí una imagen (JPG, PNG, WebP o GIF, máx. 5 MB).
             </p>
+            <label class="admin-field admin-field--file">
+              <span>Subir imagen</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                :disabled="subiendoImagen"
+                @change="onArchivoImagen($event, 'nuevo')"
+              />
+            </label>
+            <p v-if="subiendoImagen" class="admin-field-hint">Subiendo imagen…</p>
             <div v-if="trimImagenUrl(nuevo.imagenUrl)" class="admin-imagen-preview">
               <p class="admin-field-hint admin-field-hint--tight">Vista previa</p>
               <img
@@ -563,7 +631,7 @@ onMounted(() => {
                 <img
                   v-if="p.imagenUrl"
                   class="admin-thumb"
-                  :src="p.imagenUrl"
+                  :src="resolveImagenUrl(p.imagenUrl)"
                   alt=""
                   loading="lazy"
                 />
@@ -655,7 +723,16 @@ onMounted(() => {
                 autocomplete="off"
               />
             </label>
-            <p class="admin-field-hint">Vacío = sin foto en la tienda.</p>
+            <p class="admin-field-hint">Vacío = sin foto. También podés subir un archivo.</p>
+            <label class="admin-field admin-field--file">
+              <span>Subir imagen</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                :disabled="subiendoImagen"
+                @change="onArchivoImagen($event, 'edicion')"
+              />
+            </label>
             <div v-if="trimImagenUrl(edicion.imagenUrl)" class="admin-imagen-preview">
               <p class="admin-field-hint admin-field-hint--tight">Vista previa</p>
               <img

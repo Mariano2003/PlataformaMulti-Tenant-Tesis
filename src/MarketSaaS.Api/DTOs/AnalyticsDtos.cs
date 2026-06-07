@@ -28,4 +28,16 @@ public class VentasResumenResponse
 
     /// <summary>Serie diaria de los últimos 30 días (UTC); solo pedidos pagados/confirmados.</summary>
     public IReadOnlyList<VentaPorDiaDto> VentasPorDia { get; set; } = [];
+
+    public decimal TicketPromedioVentana { get; set; }
+
+    public IReadOnlyList<ProductoTopVentaDto> ProductosTop { get; set; } = [];
+}
+
+public class ProductoTopVentaDto
+{
+    public string ProductoId { get; set; } = null!;
+    public string Nombre { get; set; } = null!;
+    public int CantidadVendida { get; set; }
+    public decimal MontoTotal { get; set; }
 }

@@ -30,6 +30,7 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
     return client.GetDatabase(mongoOpt.DatabaseName);
 });
 
+builder.Services.AddSingleton<IImageStorageService, LocalImageStorageService>();
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddSingleton<INegocioService, NegocioService>();
 builder.Services.AddSingleton<ICategoriaService, CategoriaService>();
@@ -173,6 +174,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
+        Path.Combine(app.Environment.ContentRootPath, "uploads")),
+    RequestPath = "/uploads",
+});
 if (app.Environment.IsDevelopment())
     app.UseCors("SpaDev");
 else if (origenesProduccion.Length > 0)

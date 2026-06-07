@@ -75,4 +75,18 @@ public sealed class NegocioAdminMercadoPagoController : ControllerBase
         await _negocios.ActualizarMercadoPagoAsync(negocio.Id, solicitud, ct);
         return Ok(new { mensaje = "Configuración de Mercado Pago actualizada." });
     }
+
+    [HttpPost("mercadopago/oauth/desconectar")]
+    [Authorize(Policy = Policies.SuperAdminOrAdminTienda)]
+    [RequireMatchingNegocio]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> DesconectarOAuth(CancellationToken ct)
+    {
+        if (!HttpContext.TryGetNegocioActual(out var negocio))
+            return NotFound();
+
+        await _negocios.DesconectarMercadoPagoOAuthAsync(negocio.Id, ct);
+        return Ok(new { mensaje = "Cuenta de Mercado Pago desvinculada." });
+    }
 }

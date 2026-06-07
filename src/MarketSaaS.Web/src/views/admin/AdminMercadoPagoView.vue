@@ -26,15 +26,9 @@ interface ContextoAdmin {
 
 const contexto = ref<ContextoAdmin | null>(null)
 const cargando = ref(true)
-const guardando = ref(false)
 const conectando = ref(false)
 const error = ref<string | null>(null)
 const okMsg = ref<string | null>(null)
-
-const accessToken = ref('')
-const webhookSecret = ref('')
-const quitarTokenTienda = ref(false)
-const quitarSecretTienda = ref(false)
 
 async function cargarContexto() {
   cargando.value = true
@@ -133,32 +127,20 @@ onMounted(() => {
   void cargarContexto()
 })
 
-async function guardar() {
+const desconectando = ref(false)
+
+async function desconectarMercadoPago() {
+  if (!confirm('¿Desvincular la cuenta de Mercado Pago? Dejarás de cobrar hasta reconectar.')) return
   okMsg.value = null
   error.value = null
   const s = slug.value
   if (!s) return
-
-  const body: Record<string, string> = {}
-  if (quitarTokenTienda.value) body.accessToken = ''
-  else if (accessToken.value.trim()) body.accessToken = accessToken.value.trim()
-
-  if (quitarSecretTienda.value) body.webhookSecret = ''
-  else if (webhookSecret.value.trim()) body.webhookSecret = webhookSecret.value.trim()
-
-  if (Object.keys(body).length === 0) {
-    error.value =
-      'Indicá un token nuevo, el secreto del webhook, o marcá quitar token/secreto de la tienda.'
-    return
-  }
-
-  guardando.value = true
+  desconectando.value = true
   try {
-    const res = await authedFetch(`/api/negocios/${encodeURIComponent(s)}/admin/mercadopago`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
+    const res = await authedFetch(
+      `/api/negocios/${encodeURIComponent(s)}/admin/mercadopago/oauth/desconectar`,
+      { method: 'POST' },
+    )
     if (res.status === 401) {
       auth.cerrarSesion()
       await router.replace({
@@ -177,16 +159,12 @@ async function guardar() {
       }
       return
     }
-    okMsg.value = 'Listo. Los pagos de clientes usarán esta cuenta de Mercado Pago (si cargaste token).'
-    accessToken.value = ''
-    webhookSecret.value = ''
-    quitarTokenTienda.value = false
-    quitarSecretTienda.value = false
+    okMsg.value = 'Cuenta desvinculada.'
     await cargarContexto()
   } catch {
     error.value = 'Error de red.'
   } finally {
-    guardando.value = false
+    desconectando.value = false
   }
 }
 
@@ -201,9 +179,8 @@ function salir() {
       <div>
         <h1>Mercado Pago — {{ contexto?.nombre ?? '…' }}</h1>
         <p class="admin-sub">
-          Configurá la cuenta donde querés cobrar las ventas de esta tienda. Los clientes pagan con Checkout
-          Pro; el dinero ingresa a la cuenta asociada al <strong>Access Token</strong> que pegues (tu app en
-          Mercado Pago).
+          Vinculá tu cuenta de Mercado Pago para cobrar las ventas de esta tienda. Los clientes pagan con
+          Checkout Pro y el dinero ingresa a la cuenta que autorices.
         </p>
       </div>
       <div class="admin-actions">
@@ -221,14 +198,15 @@ function salir() {
       <section class="admin-panel">
         <p class="estado">
           Estado:
-          <strong v-if="contexto.mercadoPagoTiendaConfigurado">Token propio de la tienda cargado</strong>
-          <strong v-else>Sin token propio — se usa el de la plataforma (si existe en la API)</strong>
+          <strong v-if="contexto.mercadoPagoConectadoOAuth">Cuenta vinculada</strong>
+          <strong v-else-if="contexto.mercadoPagoTiendaConfigurado">Cuenta configurada</strong>
+          <strong v-else>Sin cuenta vinculada</strong>
         </p>
 
         <template v-if="contexto.mercadoPagoOAuthDisponible">
           <p class="hint">
-            <strong>Recomendado:</strong> vinculá tu cuenta con un clic. Autorizás la app de la plataforma y los
-            cobros van a tu Mercado Pago sin copiar tokens.
+            Autorizá la app de la plataforma con un clic. Los cobros de tu tienda irán a tu Mercado Pago sin
+            copiar tokens ni configurar webhooks manualmente.
           </p>
           <p v-if="contexto.mercadoPagoConectadoOAuth" class="oauth-meta">
             Vinculada vía OAuth
@@ -240,52 +218,34 @@ function salir() {
           <button
             type="button"
             class="btn-connect"
-            :disabled="conectando || guardando"
+            :disabled="conectando"
             @click="conectarMercadoPago"
           >
-            {{ conectando ? 'Redirigiendo a Mercado Pago…' : contexto.mercadoPagoConectadoOAuth ? 'Reconectar cuenta' : 'Conectar con Mercado Pago' }}
+            {{
+              conectando
+                ? 'Redirigiendo a Mercado Pago…'
+                : contexto.mercadoPagoConectadoOAuth
+                  ? 'Reconectar cuenta'
+                  : 'Conectar con Mercado Pago'
+            }}
           </button>
-          <p class="hint sep">O pegá el Access Token manualmente (modo avanzado):</p>
+          <button
+            v-if="contexto.mercadoPagoConectadoOAuth || contexto.mercadoPagoTiendaConfigurado"
+            type="button"
+            class="btn-disconnect"
+            :disabled="desconectando || conectando"
+            @click="desconectarMercadoPago"
+          >
+            {{ desconectando ? 'Desvinculando…' : 'Desvincular cuenta' }}
+          </button>
         </template>
         <p v-else class="hint">
-          En
-          <a href="https://www.mercadopago.com.ar/developers/panel/app" target="_blank" rel="noopener"
-            >Tus integraciones</a
-          >
-          creá una aplicación, copiá el Access Token (test o producción) y pegalo abajo. La URL de notificación
-          se arma sola con el id de tu negocio para que el webhook pueda confirmar pagos.
+          La vinculación OAuth no está habilitada en la plataforma. Contactá al administrador para que
+          configure las credenciales OAuth de Mercado Pago en la API.
         </p>
-
-        <label class="field">
-          <span>Access Token (no se muestra después de guardar)</span>
-          <input
-            v-model="accessToken"
-            type="password"
-            autocomplete="off"
-            placeholder="APP_USR-…"
-            :disabled="quitarTokenTienda"
-          />
-        </label>
-        <label class="check">
-          <input v-model="quitarTokenTienda" type="checkbox" />
-          Quitar token de esta tienda y usar solo el global de la API
-        </label>
-
-        <label class="field">
-          <span>Secreto del webhook (opcional, si validás firma en MP por esta app)</span>
-          <input v-model="webhookSecret" type="password" autocomplete="off" :disabled="quitarSecretTienda" />
-        </label>
-        <label class="check">
-          <input v-model="quitarSecretTienda" type="checkbox" />
-          Quitar secreto por tienda (se usa el global si está configurado)
-        </label>
 
         <p v-if="error" class="err">{{ error }}</p>
         <p v-if="okMsg" class="ok">{{ okMsg }}</p>
-
-        <button type="button" class="btn-submit" :disabled="guardando" @click="guardar">
-          {{ guardando ? 'Guardando…' : 'Guardar' }}
-        </button>
       </section>
     </template>
   </div>
@@ -310,31 +270,6 @@ function salir() {
   color: var(--text-muted, #6b7280);
   line-height: 1.45;
 }
-.hint a {
-  color: var(--accent, #2563eb);
-}
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-}
-.field input {
-  padding: 0.5rem 0.65rem;
-  border-radius: 8px;
-  border: 1px solid var(--border, #d1d5db);
-  font-family: ui-monospace, monospace;
-  font-size: 0.85rem;
-}
-.check {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  margin: -0.5rem 0 1rem;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
 .err {
   color: #b91c1c;
   font-size: 0.9rem;
@@ -343,23 +278,10 @@ function salir() {
   color: #15803d;
   font-size: 0.9rem;
 }
-.btn-submit {
-  margin-top: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  border: none;
-  background: var(--accent, #2563eb);
-  color: #fff;
-  font-weight: 600;
-  cursor: pointer;
-}
-.btn-submit:disabled {
-  opacity: 0.65;
-}
 .btn-connect {
   display: block;
   width: 100%;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
   padding: 0.65rem 1rem;
   border-radius: 8px;
   border: none;
@@ -371,14 +293,24 @@ function salir() {
 .btn-connect:disabled {
   opacity: 0.65;
 }
+.btn-disconnect {
+  display: block;
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #b91c1c;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-disconnect:disabled {
+  opacity: 0.65;
+}
 .oauth-meta {
   margin: 0 0 0.75rem;
   font-size: 0.85rem;
   color: #15803d;
-}
-.hint.sep {
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border, #e5e7eb);
 }
 </style>

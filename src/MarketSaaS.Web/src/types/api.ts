@@ -120,6 +120,46 @@ export interface VentasResumenDto {
   montoTotalVentana: number
   pedidosPagadosVentana: number
   ventasPorDia: VentaPorDiaDto[]
+  ticketPromedioVentana: number
+  productosTop: ProductoTopVentaDto[]
+}
+
+export interface ProductoTopVentaDto {
+  productoId: string
+  nombre: string
+  cantidadVendida: number
+  montoTotal: number
+}
+
+export interface PedidoNovedadesDto {
+  pedidosPagadosNuevos: number
+}
+
+/** Estados que el admin puede asignar manualmente (post-pago). */
+export const ESTADOS_PEDIDO_ADMIN = [
+  { valor: 'EnPreparacion', etiqueta: 'En preparación' },
+  { valor: 'Enviado', etiqueta: 'Enviado' },
+  { valor: 'Entregado', etiqueta: 'Entregado' },
+  { valor: 'Cancelado', etiqueta: 'Cancelado' },
+] as const
+
+export function pedidoAdminPuedeGestionar(estado: string) {
+  return ['Pagado', 'Confirmado', 'EnPreparacion', 'Enviado'].includes(estado)
+}
+
+export function etiquetaEstadoPedido(estado: string) {
+  const map: Record<string, string> = {
+    PendientePago: 'Pendiente de pago',
+    ProcesandoPago: 'Procesando pago',
+    Pagado: 'Pagado',
+    Rechazado: 'Rechazado',
+    Confirmado: 'Confirmado',
+    EnPreparacion: 'En preparación',
+    Enviado: 'Enviado',
+    Entregado: 'Entregado',
+    Cancelado: 'Cancelado',
+  }
+  return map[estado] ?? estado
 }
 
 /** `ProductoResponse` admin (incluye inactivos). */

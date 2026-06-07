@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import TiendaCabecera from '../components/tienda/TiendaCabecera.vue'
 import TiendaEstado from '../components/tienda/TiendaEstado.vue'
+import TiendaPaginacion from '../components/tienda/TiendaPaginacion.vue'
 import ProductoCard from '../components/tienda/ProductoCard.vue'
 import TiendaChatWidget from '../components/chat/TiendaChatWidget.vue'
 import { useTiendaCatalogo } from '../composables/useTiendaCatalogo'
@@ -19,10 +20,19 @@ const categoriaId = ref<string | null>(
     : null,
 )
 
-const { negocio, categorias, productos, loading, error, cargar } = useTiendaCatalogo(
-  slug,
-  categoriaId,
+const buscar = ref(
+  typeof route.query.q === 'string' ? route.query.q : '',
 )
+
+const pagina = ref(
+  typeof route.query.pagina === 'string' && Number(route.query.pagina) > 0
+    ? Number(route.query.pagina)
+    : 1,
+)
+
+const { negocio, categorias, productos, total, totalPaginas, loading, error, cargar } =
+  useTiendaCatalogo(slug, categoriaId, buscar, pagina)
+
 const { retornoPago, confirmandoPago } = useRetornoPagoMercadoPago(() => slug.value, {
   onDespuesConfirmar: () => cargar(),
 })
@@ -41,6 +51,9 @@ const sinProductos = computed(
 )
 
 const mensajeSinProductos = computed(() => {
+  if (buscar.value.trim()) {
+    return `No hay productos que coincidan con «${buscar.value.trim()}».`
+  }
   if (categoriaId.value) {
     const cat = categorias.value.find((c) => c.id === categoriaId.value)
     const nombre = cat?.nombre ?? 'esta categoría'
@@ -69,12 +82,57 @@ watch(
   },
 )
 
+watch(
+  () => route.query.q,
+  (q) => {
+    const next = typeof q === 'string' ? q : ''
+    if (next !== buscar.value) buscar.value = next
+  },
+)
+
+watch(
+  () => route.query.pagina,
+  (q) => {
+    const n =
+      typeof q === 'string' && Number(q) > 0 ? Number(q) : 1
+    if (n !== pagina.value) pagina.value = n
+  },
+)
+
+let debounceBuscar: ReturnType<typeof setTimeout> | null = null
+
+function sincronizarQuery() {
+  const query: Record<string, string> = {}
+  if (categoriaId.value) query.categoria = categoriaId.value
+  if (buscar.value.trim()) query.q = buscar.value.trim()
+  if (pagina.value > 1) query.pagina = String(pagina.value)
+  void router.replace({ query })
+}
+
 function seleccionarCategoria(id: string | null) {
   categoriaId.value = id
-  const query = { ...route.query }
-  if (id) query.categoria = id
-  else delete query.categoria
-  void router.replace({ query })
+  pagina.value = 1
+  sincronizarQuery()
+}
+
+function onBuscarInput() {
+  if (debounceBuscar) clearTimeout(debounceBuscar)
+  debounceBuscar = setTimeout(() => {
+    pagina.value = 1
+    sincronizarQuery()
+  }, 350)
+}
+
+function paginaAnterior() {
+  if (pagina.value <= 1) return
+  pagina.value -= 1
+  sincronizarQuery()
+}
+
+function paginaSiguiente() {
+  if (pagina.value >= totalPaginas.value) return
+  pagina.value += 1
+  sincronizarQuery()
 }
 </script>
 
@@ -99,6 +157,19 @@ function seleccionarCategoria(id: string | null) {
       {{ retornoPago.texto }}
       <span v-if="confirmandoPago"> (sincronizando…)</span>
     </p>
+
+    <div v-if="!loading && !error" class="tienda-toolbar">
+      <label class="tienda-buscar">
+        <span class="sr-only">Buscar productos</span>
+        <input
+          v-model="buscar"
+          type="search"
+          placeholder="Buscar productos…"
+          autocomplete="off"
+          @input="onBuscarInput"
+        />
+      </label>
+    </div>
 
     <nav
       v-if="!loading && !error && categorias.length"
@@ -136,6 +207,15 @@ function seleccionarCategoria(id: string | null) {
         <ProductoCard :producto="p" />
       </li>
     </ul>
+    <TiendaPaginacion
+      v-if="!loading && !error && totalPaginas > 1"
+      :pagina="pagina"
+      :total-paginas="totalPaginas"
+      :total="total"
+      :cargando="loading"
+      @anterior="paginaAnterior"
+      @siguiente="paginaSiguiente"
+    />
     <TiendaChatWidget v-if="slug" :slug="slug" />
   </div>
 </template>
@@ -163,6 +243,17 @@ function seleccionarCategoria(id: string | null) {
   color: #92400e;
   border: 1px solid #fde68a;
 }
+.tienda-toolbar {
+  margin: 0 0 1rem;
+}
+.tienda-buscar input {
+  width: 100%;
+  max-width: 22rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--border-strong, #d1d5db);
+  border-radius: 10px;
+  font-size: 0.95rem;
+}
 .tienda-filtros {
   display: flex;
   flex-wrap: wrap;
@@ -187,5 +278,15 @@ function seleccionarCategoria(id: string | null) {
   background: var(--accent, #2563eb);
   border-color: var(--accent, #2563eb);
   color: #fff;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 </style>

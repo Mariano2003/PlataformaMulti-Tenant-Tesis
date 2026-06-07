@@ -35,6 +35,56 @@ public class PedidosAdminController : ControllerBase
         return Ok(respuesta);
     }
 
+    [HttpGet("novedades")]
+    [Authorize(Policy = Policies.SuperAdminOrAdminTienda)]
+    [RequireMatchingNegocio]
+    [ProducesResponseType(typeof(PedidoNovedadesResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PedidoNovedadesResponse>> Novedades(
+        [FromQuery] DateTime? desde,
+        CancellationToken ct = default)
+    {
+        if (!HttpContext.TryGetNegocioActual(out var negocio))
+            return NotFound();
+
+        var desdeUtc = desde ?? DateTime.UtcNow.AddDays(-7);
+        if (desdeUtc.Kind == DateTimeKind.Unspecified)
+            desdeUtc = DateTime.SpecifyKind(desdeUtc, DateTimeKind.Utc);
+
+        var cantidad = await _pedidos.ContarPedidosPagadosDesdeAsync(negocio.Id, desdeUtc, ct);
+        return Ok(new PedidoNovedadesResponse { PedidosPagadosNuevos = cantidad });
+    }
+
+    [HttpPut("{id}/estado")]
+    [Authorize(Policy = Policies.SuperAdminOrAdminTienda)]
+    [RequireMatchingNegocio]
+    [ProducesResponseType(typeof(PedidoResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PedidoResponse>> ActualizarEstado(
+        string id,
+        [FromBody] ActualizarEstadoPedidoRequest solicitud,
+        CancellationToken ct = default)
+    {
+        if (!HttpContext.TryGetNegocioActual(out var negocio))
+            return NotFound();
+
+        try
+        {
+            var pedido = await _pedidos.ActualizarEstadoAdminAsync(negocio.Id, id, solicitud.Estado, ct);
+            if (pedido is null)
+                return NotFound();
+            return Ok(Map(pedido));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpGet("{id}")]
     [Authorize(Policy = Policies.SuperAdminOrAdminTienda)]
     [RequireMatchingNegocio]
