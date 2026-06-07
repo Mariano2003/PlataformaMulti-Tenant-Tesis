@@ -84,6 +84,15 @@ public sealed class MongoIndexInitializer : IHostedService
             _log.LogWarning(ex, "Migración de campo imagen en productos omitida.");
         }
 
+        try
+        {
+            await MigrarLineasPedidosAsync(db, _log, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Migración de líneas en pedidos omitida.");
+        }
+
         var nombresColecciones = await (await db.ListCollectionNamesAsync(cancellationToken: cancellationToken))
             .ToListAsync(cancellationToken);
         if (!nombresColecciones.Contains(CollectionNames.Pedidos))
@@ -134,6 +143,103 @@ public sealed class MongoIndexInitializer : IHostedService
             cancellationToken: cancellationToken);
 
         _log.LogInformation("Índices MongoDB verificados/creados.");
+    }
+
+    private static async Task MigrarLineasPedidosAsync(
+        IMongoDatabase db,
+        ILogger log,
+        CancellationToken cancellationToken)
+    {
+        var col = db.GetCollection<BsonDocument>(CollectionNames.Pedidos);
+
+        var renombrados = await col.UpdateManyAsync(
+            Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.Exists("Lineas", true),
+                Builders<BsonDocument>.Filter.Not(Builders<BsonDocument>.Filter.Exists("lineas", true))),
+            Builders<BsonDocument>.Update.Rename("Lineas", "lineas"),
+            cancellationToken: cancellationToken);
+        if (renombrados.ModifiedCount > 0)
+            log.LogInformation(
+                "Pedidos: migrados {N} documentos (campo BSON Lineas → lineas).",
+                renombrados.ModifiedCount);
+
+        var cursor = await col
+            .Find(Builders<BsonDocument>.Filter.Exists("lineas", true))
+            .ToCursorAsync(cancellationToken);
+
+        var actualizados = 0;
+        while (await cursor.MoveNextAsync(cancellationToken))
+        {
+            foreach (var doc in cursor.Current)
+            {
+                if (!doc.TryGetValue("lineas", out var lineasVal) || !lineasVal.IsBsonArray)
+                    continue;
+
+                var arr = lineasVal.AsBsonArray;
+                var nuevo = new BsonArray();
+                var changed = false;
+
+                foreach (var el in arr)
+                {
+                    if (!el.IsBsonDocument)
+                    {
+                        nuevo.Add(el);
+                        continue;
+                    }
+
+                    var src = el.AsBsonDocument;
+                    var dst = NormalizarLineaBson(src, ref changed);
+                    nuevo.Add(dst);
+                }
+
+                if (!changed)
+                    continue;
+
+                await col.UpdateOneAsync(
+                    Builders<BsonDocument>.Filter.Eq("_id", doc["_id"]),
+                    Builders<BsonDocument>.Update.Set("lineas", nuevo),
+                    cancellationToken: cancellationToken);
+                actualizados++;
+            }
+        }
+
+        if (actualizados > 0)
+            log.LogInformation(
+                "Pedidos: normalizadas líneas anidadas en {N} documentos (PascalCase → camelCase).",
+                actualizados);
+    }
+
+    private static BsonDocument NormalizarLineaBson(BsonDocument src, ref bool changed)
+    {
+        var dst = new BsonDocument();
+        changed |= CopiarCampoLinea(src, dst, "productoId", "ProductoId");
+        changed |= CopiarCampoLinea(src, dst, "nombre", "Nombre");
+        changed |= CopiarCampoLinea(src, dst, "cantidad", "Cantidad");
+        changed |= CopiarCampoLinea(src, dst, "precioUnitario", "PrecioUnitario");
+        changed |= CopiarCampoLinea(src, dst, "subtotal", "Subtotal");
+
+        foreach (var kv in src)
+        {
+            if (!dst.Contains(kv.Name))
+                dst[kv.Name] = kv.Value;
+        }
+
+        return dst;
+    }
+
+    private static bool CopiarCampoLinea(BsonDocument src, BsonDocument dst, string camel, string pascal)
+    {
+        if (src.Contains(camel))
+        {
+            dst[camel] = src[camel];
+            return false;
+        }
+
+        if (!src.Contains(pascal))
+            return false;
+
+        dst[camel] = src[pascal];
+        return true;
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
