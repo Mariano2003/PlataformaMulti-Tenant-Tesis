@@ -12,6 +12,7 @@ import {
   pedidoDebeAutoActualizar,
   pedidoMuestraSeguimiento,
 } from '../types/api'
+import { normalizarPedidoCliente } from '../utils/normalizarPedidoApi'
 
 const auth = useAuthStore()
 const authedFetch = useAuthedFetch()
@@ -20,7 +21,6 @@ const pedidos = ref<PedidoClienteListItemDto[]>([])
 const cargando = ref(true)
 const refrescando = ref(false)
 const error = ref<string | null>(null)
-const expandidoId = ref<string | null>(null)
 const ultimaActualizacion = ref<Date | null>(null)
 
 const precioFmt = new Intl.NumberFormat('es-AR', {
@@ -62,10 +62,6 @@ function formatearFecha(iso: string) {
   }
 }
 
-function toggleDetalle(id: string) {
-  expandidoId.value = expandidoId.value === id ? null : id
-}
-
 function pasoCompletado(pasoIdx: number, estado: string) {
   const actual = indiceSeguimientoPedido(estado)
   return actual >= pasoIdx
@@ -95,7 +91,9 @@ async function cargar(silencioso = false) {
       return
     }
     const raw = (await res.json()) as unknown
-    pedidos.value = Array.isArray(raw) ? (raw as PedidoClienteListItemDto[]) : []
+    pedidos.value = Array.isArray(raw)
+      ? raw.map((x) => normalizarPedidoCliente(x as Record<string, unknown>))
+      : []
     ultimaActualizacion.value = new Date()
   } catch {
     if (!silencioso) error.value = 'No se pudo conectar con la API.'
@@ -203,17 +201,19 @@ onUnmounted(() => {
           Este pedido fue cancelado por la tienda.
         </p>
 
-        <button type="button" class="mis-pedidos__toggle" @click="toggleDetalle(p.id)">
-          {{ expandidoId === p.id ? 'Ocultar detalle' : 'Ver productos' }}
-        </button>
-
-        <ul v-if="expandidoId === p.id" class="mis-pedidos__lineas">
-          <li v-for="l in p.lineas" :key="l.productoId + l.nombre">
-            <span>{{ l.nombre }}</span>
-            <span>{{ l.cantidad }} × {{ precioFmt.format(l.precioUnitario) }}</span>
-            <span>{{ precioFmt.format(l.subtotal) }}</span>
-          </li>
-        </ul>
+        <section v-if="p.lineas.length" class="mis-pedidos__productos">
+          <h3 class="mis-pedidos__productos-titulo">Productos</h3>
+          <ul class="mis-pedidos__lineas">
+            <li v-for="l in p.lineas" :key="`${p.id}-${l.productoId}-${l.nombre}`">
+              <span class="mis-pedidos__linea-nombre">{{ l.nombre }}</span>
+              <span class="mis-pedidos__linea-cant">{{ l.cantidad }} × {{ precioFmt.format(l.precioUnitario) }}</span>
+              <span class="mis-pedidos__linea-sub">{{ precioFmt.format(l.subtotal) }}</span>
+            </li>
+          </ul>
+        </section>
+        <p v-else class="mis-pedidos__hint">
+          No hay detalle de productos guardado para este pedido.
+        </p>
       </li>
     </ul>
   </main>
@@ -418,23 +418,21 @@ onUnmounted(() => {
 .mis-pedidos__hint--err {
   color: #b91c1c;
 }
-.mis-pedidos__toggle {
-  margin-top: 0.75rem;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--accent-dark);
+.mis-pedidos__productos {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+.mis-pedidos__productos-titulo {
+  margin: 0 0 0.5rem;
   font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: underline;
+  font-weight: 700;
+  color: var(--text-h);
 }
 .mis-pedidos__lineas {
   list-style: none;
-  margin: 0.65rem 0 0;
+  margin: 0;
   padding: 0;
-  border-top: 1px solid var(--border);
-  padding-top: 0.65rem;
 }
 .mis-pedidos__lineas li {
   display: grid;
@@ -446,5 +444,17 @@ onUnmounted(() => {
 }
 .mis-pedidos__lineas li:last-child {
   border-bottom: none;
+}
+.mis-pedidos__linea-nombre {
+  font-weight: 600;
+  color: var(--text-h);
+}
+.mis-pedidos__linea-cant {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.mis-pedidos__linea-sub {
+  font-weight: 600;
+  white-space: nowrap;
 }
 </style>
