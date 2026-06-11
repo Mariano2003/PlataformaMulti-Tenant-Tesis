@@ -163,6 +163,8 @@ public sealed class PasswordRecoveryService : IPasswordRecoveryService
     {
         if (!o.Enabled || string.IsNullOrWhiteSpace(o.FromEmail))
             return false;
+        if (!string.IsNullOrWhiteSpace(o.BrevoApiKey))
+            return true;
         if (!string.IsNullOrWhiteSpace(o.ResendApiKey))
             return true;
         return !string.IsNullOrWhiteSpace(o.SmtpUser) && !string.IsNullOrWhiteSpace(o.SmtpPassword);
