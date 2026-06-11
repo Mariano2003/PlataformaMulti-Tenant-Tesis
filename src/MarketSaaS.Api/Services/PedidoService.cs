@@ -11,11 +11,13 @@ public sealed class PedidoService : IPedidoService
 {
     private readonly IMongoCollection<Pedido> _pedidos;
     private readonly IMongoCollection<Producto> _productos;
+    private readonly IPedidoEmailService _emails;
 
-    public PedidoService(IMongoDatabase db)
+    public PedidoService(IMongoDatabase db, IPedidoEmailService emails)
     {
         _pedidos = db.GetCollection<Pedido>(CollectionNames.Pedidos);
         _productos = db.GetCollection<Producto>(CollectionNames.Productos);
+        _emails = emails;
     }
 
     public async Task<Pedido> CrearPendienteDePagoAsync(
@@ -120,6 +122,9 @@ public sealed class PedidoService : IPedidoService
                 p => p.Id == pedidoId && p.Estado == PedidoEstados.ProcesandoPago,
                 Builders<Pedido>.Update.Set(p => p.Estado, PedidoEstados.Pagado),
                 cancellationToken: ct);
+
+            pedido.Estado = PedidoEstados.Pagado;
+            await _emails.NotificarPagoConfirmadoAsync(pedido, ct);
         }
         catch
         {
@@ -318,6 +323,7 @@ public sealed class PedidoService : IPedidoService
             cancellationToken: ct);
 
         pedido.Estado = estado;
+        await _emails.NotificarCambioEstadoAsync(pedido, ct);
         return pedido;
     }
 

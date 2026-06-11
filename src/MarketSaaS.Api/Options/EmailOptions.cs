@@ -10,6 +10,13 @@ public sealed class EmailOptions
 
     public bool Enabled { get; set; }
 
+    /// <summary>
+    /// API key de <a href="https://www.brevo.com">Brevo</a> (xkeysib-...). Máxima prioridad.
+    /// A diferencia de Resend, permite enviar a cualquier destinatario sin dominio propio
+    /// (alcanza con verificar el email remitente en Brevo).
+    /// </summary>
+    public string BrevoApiKey { get; set; } = "";
+
     /// <summary>API key de <a href="https://resend.com">Resend</a> (re_...). Prioridad sobre SMTP.</summary>
     public string ResendApiKey { get; set; } = "";
 
