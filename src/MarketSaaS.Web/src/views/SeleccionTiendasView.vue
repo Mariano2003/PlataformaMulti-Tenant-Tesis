@@ -73,7 +73,6 @@ onMounted(async () => {
       <li v-for="n in tiendas" :key="n.id">
         <RouterLink class="pick-card" :to="{ name: 'tienda', params: { slug: n.slug } }">
           <span class="pick-card__name">{{ n.nombre }}</span>
-          <span v-if="n.descripcionCorta" class="pick-card__desc">{{ n.descripcionCorta }}</span>
           <span class="pick-card__badge">Entrar a la tienda →</span>
         </RouterLink>
       </li>
@@ -138,15 +137,6 @@ onMounted(async () => {
 }
 .pick__state--err {
   color: #b91c1c;
-}
-.pick-card__desc {
-  font-size: 0.85rem;
-  color: var(--text);
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 .pick__foot {
   margin-top: 2rem;

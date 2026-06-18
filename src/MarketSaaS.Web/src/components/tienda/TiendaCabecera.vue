@@ -13,7 +13,6 @@ defineProps<{
   <header class="tienda-hero">
     <div class="titulos">
       <h1>{{ negocio?.nombre ?? 'Tienda' }}</h1>
-      <p v-if="negocio?.descripcionCorta" class="desc">{{ negocio.descripcionCorta }}</p>
       <p class="meta">Tienda: <code>{{ slug }}</code></p>
     </div>
     <RouterLink
