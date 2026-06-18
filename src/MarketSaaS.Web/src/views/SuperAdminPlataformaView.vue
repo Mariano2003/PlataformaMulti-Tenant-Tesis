@@ -23,12 +23,6 @@ const creando = ref(false)
 const crearMsg = ref<string | null>(null)
 const crearError = ref<string | null>(null)
 
-const rstEmail = ref('')
-const rstPwd = ref('')
-const rstLoading = ref(false)
-const rstMsg = ref<string | null>(null)
-const rstErr = ref<string | null>(null)
-
 function mensajeErrorApi(bodyText: string, status: number): string {
   try {
     const j = JSON.parse(bodyText) as {
@@ -143,44 +137,6 @@ async function crearTienda() {
     creando.value = false
   }
 }
-
-async function restablecerClaveUsuario() {
-  rstMsg.value = null
-  rstErr.value = null
-  if (!auth.token) {
-    rstErr.value = 'Sesión no válida.'
-    return
-  }
-  if (rstPwd.value.length < 8) {
-    rstErr.value = 'La contraseña nueva debe tener al menos 8 caracteres.'
-    return
-  }
-  rstLoading.value = true
-  try {
-    const res = await fetch(apiUrl('/api/auth/admin/restablecer-clave-usuario'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${auth.token}`,
-      },
-      body: JSON.stringify({
-        email: rstEmail.value.trim().toLowerCase(),
-        nuevaPassword: rstPwd.value,
-      }),
-    })
-    const text = await res.text()
-    if (!res.ok) {
-      rstErr.value = mensajeErrorApi(text, res.status)
-      return
-    }
-    rstMsg.value = 'Contraseña actualizada. Esa persona puede entrar con el mail indicado y la clave nueva.'
-    rstPwd.value = ''
-  } catch {
-    rstErr.value = 'No se pudo conectar con la API.'
-  } finally {
-    rstLoading.value = false
-  }
-}
 </script>
 
 <template>
@@ -188,10 +144,6 @@ async function restablecerClaveUsuario() {
     <header class="sap__head">
       <div>
         <h1>Panel plataforma</h1>
-        <p class="sap__sub">
-          Gestioná los negocios del SaaS. Solo vos como <strong>SuperAdmin</strong> ves esta pantalla y el
-          alta de tiendas.
-        </p>
       </div>
       <div class="sap__actions">
         <RouterLink class="sap__link" :to="{ name: 'tiendas' }">Ir a comprar (tiendas)</RouterLink>
@@ -201,11 +153,6 @@ async function restablecerClaveUsuario() {
 
     <section class="sap__panel sap__panel--accent">
       <h2 class="sap__h2">Alta de nueva tienda</h2>
-      <p class="sap__hint">
-        El <code>slug</code> es la URL de la tienda (minúsculas, números y guiones). Los
-        <strong>clientes</strong> se registran solos en <code>/registro</code>; desde acá solo das de alta
-        la tienda y el <strong>dueño</strong> (AdminTienda).
-      </p>
       <form class="sap__form" @submit.prevent="crearTienda">
         <h3 class="sap__h3">Datos del negocio</h3>
         <label class="sap__field">
@@ -226,10 +173,6 @@ async function restablecerClaveUsuario() {
         </label>
 
         <h3 class="sap__h3 sap__h3--sep">Dueño — panel de la tienda (recomendado)</h3>
-        <p class="sap__hint sap__hint--tight">
-          El dueño no puede registrarse en la web pública: cargá su email, nombre y contraseña inicial
-          (mín. 8). Entrará en <code>/admin/&lt;slug&gt;/login</code>.
-        </p>
         <label class="sap__field sap__field--grow">
           <span>Email del dueño (login)</span>
           <input
@@ -265,36 +208,6 @@ async function restablecerClaveUsuario() {
       </form>
       <p v-if="crearMsg" class="sap__ok">{{ crearMsg }}</p>
       <p v-if="crearError" class="sap__err">{{ crearError }}</p>
-    </section>
-
-    <section class="sap__panel">
-      <h2 class="sap__h2">Restablecer contraseña de un usuario</h2>
-      <p class="sap__hint">
-        Sin correo ni SMTP: definís una clave nueva para un dueño de tienda (u otro usuario existente).
-        Los clientes suelen usar «Olvidé mi contraseña» o registrarse en <code>/registro</code>.
-      </p>
-      <form class="sap__form" @submit.prevent="restablecerClaveUsuario">
-        <label class="sap__field sap__field--grow">
-          <span>Email del usuario</span>
-          <input v-model="rstEmail" type="email" required maxlength="200" autocomplete="off" />
-        </label>
-        <label class="sap__field">
-          <span>Nueva contraseña</span>
-          <input
-            v-model="rstPwd"
-            type="password"
-            required
-            minlength="8"
-            maxlength="200"
-            autocomplete="new-password"
-          />
-        </label>
-        <button type="submit" class="sap__btn sap__btn--submit" :disabled="rstLoading">
-          {{ rstLoading ? 'Guardando…' : 'Guardar contraseña' }}
-        </button>
-      </form>
-      <p v-if="rstMsg" class="sap__ok">{{ rstMsg }}</p>
-      <p v-if="rstErr" class="sap__err">{{ rstErr }}</p>
     </section>
 
     <section class="sap__panel">
@@ -334,15 +247,8 @@ async function restablecerClaveUsuario() {
   margin-bottom: 1.75rem;
 }
 .sap__head h1 {
-  margin: 0 0 0.35rem;
-  font-size: 1.65rem;
-}
-.sap__sub {
   margin: 0;
-  max-width: 36rem;
-  line-height: 1.5;
-  color: var(--text, #4b5563);
-  font-size: 0.95rem;
+  font-size: 1.65rem;
 }
 .sap__actions {
   display: flex;
@@ -382,12 +288,6 @@ async function restablecerClaveUsuario() {
   margin: 0 0 0.75rem;
   font-size: 1.1rem;
 }
-.sap__hint {
-  margin: 0 0 1rem;
-  font-size: 0.85rem;
-  color: var(--text-muted, #6b7280);
-  line-height: 1.45;
-}
 .sap__form {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
@@ -403,11 +303,6 @@ async function restablecerClaveUsuario() {
 }
 .sap__h3--sep {
   margin-top: 0.35rem;
-}
-.sap__hint--tight {
-  grid-column: 1 / -1;
-  margin-top: 0;
-  margin-bottom: 0;
 }
 .sap__btn--submit {
   grid-column: 1 / -1;
@@ -509,8 +404,5 @@ async function restablecerClaveUsuario() {
 }
 .sap__row-links a:hover {
   text-decoration: underline;
-}
-code {
-  font-size: 0.8rem;
 }
 </style>

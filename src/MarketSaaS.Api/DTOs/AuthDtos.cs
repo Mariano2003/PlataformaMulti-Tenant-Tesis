@@ -73,16 +73,6 @@ public class RestablecerClaveRequest
     public string NuevaPassword { get; set; } = null!;
 }
 
-/// <summary>Solo SuperAdmin: nueva contraseña para un usuario sin flujo de mail.</summary>
-public class SuperAdminRestablecerClaveUsuarioRequest
-{
-    [Required, EmailAddress, MaxLength(200)]
-    public string Email { get; set; } = null!;
-
-    [Required, MinLength(8), MaxLength(200)]
-    public string NuevaPassword { get; set; } = null!;
-}
-
 public class AuthResponse
 {
     public string Token { get; set; } = null!;
