@@ -35,16 +35,6 @@ Content-Type: application/json
   "nuevaPassword": "ClaveSegura2"
 }
 
-### SuperAdmin: nueva contraseña para un usuario (sin mail; requiere Bearer SuperAdmin)
-POST {{host}}/api/auth/admin/restablecer-clave-usuario
-Content-Type: application/json
-Authorization: Bearer {{tokenSuper}}
-
-{
-  "email": "dueño@mitienda.com",
-  "nuevaPassword": "ClaveSegura2"
-}
-
 ### 3) Crear negocio (requiere JWT SuperAdmin)
 POST {{host}}/api/negocios
 Content-Type: application/json

@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using MarketSaaS.Api.Authorization;
 using MarketSaaS.Api.DTOs;
 using MarketSaaS.Api.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -77,35 +76,6 @@ public class AuthController : ControllerBase
         {
             await _recuperacion.RestablecerAsync(solicitud.Token, solicitud.NuevaPassword, ct);
             return Ok(new { mensaje = "Contraseña actualizada. Ya podés iniciar sesión." });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
-    }
-
-    /// <summary>
-    /// Solo rol SuperAdmin: asigna una contraseña nueva a un usuario activo (sin enviar mail).
-    /// La configuración SMTP sigue siendo solo para el flujo «olvidé mi contraseña».
-    /// </summary>
-    [HttpPost("admin/restablecer-clave-usuario")]
-    [Authorize(Policy = Policies.SuperAdminOnly)]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult> SuperAdminRestablecerClaveUsuario(
-        [FromBody] SuperAdminRestablecerClaveUsuarioRequest solicitud,
-        CancellationToken ct)
-    {
-        try
-        {
-            var emailNorm = solicitud.Email.Trim().ToLowerInvariant();
-            await _auth.ActualizarPasswordPorEmailAsync(emailNorm, solicitud.NuevaPassword, ct);
-            return Ok(new { mensaje = "Contraseña actualizada." });
         }
         catch (ArgumentException ex)
         {
