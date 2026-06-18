@@ -53,6 +53,14 @@ dotnet run
 
 - Swagger (desarrollo): `https://localhost:{puerto}/swagger`
 
+### Tests (API)
+
+```bash
+dotnet test MarketSaaS.sln
+```
+
+50 pruebas unitarias: estados de pedido, paginación, URLs del SPA, tokens de recuperación de clave, PKCE/OAuth y webhooks de Mercado Pago.
+
 ### Frontend (Vue)
 
 ```bash
@@ -62,6 +70,15 @@ npm run dev
 ```
 
 Con la API en **`http://localhost:5037`**, Vite proxifica `/api` hacia el backend. Detalle: `src/MarketSaaS.Web/README.md`.
+
+### Tests (frontend)
+
+```bash
+cd src/MarketSaaS.Web
+npm test
+```
+
+Prueba normalización de pedidos desde la API (camelCase/PascalCase) y helpers de estado del pedido.
 
 ## Endpoints iniciales
 

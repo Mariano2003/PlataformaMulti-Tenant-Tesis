@@ -67,7 +67,7 @@ public sealed class PasswordRecoveryService : IPasswordRecoveryService
 
         var plainBytes = RandomNumberGenerator.GetBytes(32);
         var plainHex = Convert.ToHexString(plainBytes).ToLowerInvariant();
-        var hashHex = HashTokenBytes(plainBytes);
+        var hashHex = PasswordResetTokenFormat.HashBytes(plainBytes);
 
         var minutos = Math.Clamp(_emailOpt.TokenValidMinutes, 15, 1440);
         var entidad = new PasswordResetToken
@@ -126,23 +126,10 @@ public sealed class PasswordRecoveryService : IPasswordRecoveryService
             throw new ArgumentException("La contraseña debe tener al menos 8 caracteres.");
 
         var tokenNorm = tokenPlano.Trim().ToLowerInvariant();
-        if (tokenNorm.Length != 64)
+        if (!PasswordResetTokenFormat.TryParseTokenPlano(tokenPlano, out var tokenBytes))
             throw new ArgumentException("El enlace no es válido.");
 
-        byte[] tokenBytes;
-        try
-        {
-            tokenBytes = Convert.FromHexString(tokenNorm);
-        }
-        catch (FormatException)
-        {
-            throw new ArgumentException("El enlace no es válido.");
-        }
-
-        if (tokenBytes.Length != 32)
-            throw new ArgumentException("El enlace no es válido.");
-
-        var hashHex = HashTokenBytes(tokenBytes);
+        var hashHex = PasswordResetTokenFormat.HashBytes(tokenBytes);
         var doc = await _tokens
             .Find(t => t.TokenHash == hashHex && t.ExpiraEnUtc > DateTime.UtcNow)
             .FirstOrDefaultAsync(ct);
@@ -179,7 +166,4 @@ public sealed class PasswordRecoveryService : IPasswordRecoveryService
             app = "http://localhost:5173";
         return app;
     }
-
-    private static string HashTokenBytes(byte[] tokenBytes) =>
-        Convert.ToHexString(SHA256.HashData(tokenBytes)).ToLowerInvariant();
 }
