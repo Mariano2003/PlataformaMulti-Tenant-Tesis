@@ -68,7 +68,6 @@ public sealed class DevIdentitySeedHostedService : IHostedService
                     {
                         Slug = slug,
                         Nombre = opt.DemoNegocioNombre.Trim(),
-                        DescripcionCorta = "Semilla desarrollo",
                         EmailContacto = "demo@local.test",
                     },
                     cancellationToken);

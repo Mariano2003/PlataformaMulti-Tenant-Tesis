@@ -146,7 +146,6 @@ async function crearTienda() {
         <h1>Panel plataforma</h1>
       </div>
       <div class="sap__actions">
-        <RouterLink class="sap__link" :to="{ name: 'tiendas' }">Ir a comprar (tiendas)</RouterLink>
         <button type="button" class="sap__out" @click="auth.cerrarSesion()">Salir</button>
       </div>
     </header>
@@ -255,15 +254,6 @@ async function crearTienda() {
   flex-direction: column;
   align-items: flex-end;
   gap: 0.5rem;
-}
-.sap__link {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--accent, #2563eb);
-  text-decoration: none;
-}
-.sap__link:hover {
-  text-decoration: underline;
 }
 .sap__out {
   font-size: 0.85rem;
