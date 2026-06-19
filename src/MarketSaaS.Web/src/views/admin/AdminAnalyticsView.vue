@@ -269,12 +269,12 @@ onMounted(() => {
           <strong class="admin-kpi-val">{{ precioFmt.format(resumen.montoTotalVentana) }}</strong>
         </div>
         <div class="admin-kpi">
-          <span class="admin-kpi-label">Pedidos pagados (30 días)</span>
-          <strong class="admin-kpi-val">{{ resumen.pedidosPagadosVentana }}</strong>
+          <span class="admin-kpi-label">Unidades vendidas (30 días)</span>
+          <strong class="admin-kpi-val">{{ resumen.unidadesVendidasVentana ?? 0 }}</strong>
         </div>
         <div class="admin-kpi">
-          <span class="admin-kpi-label">Ticket promedio (30 días)</span>
-          <strong class="admin-kpi-val">{{ precioFmt.format(resumen.ticketPromedioVentana) }}</strong>
+          <span class="admin-kpi-label">Pedidos por entregar</span>
+          <strong class="admin-kpi-val">{{ resumen.pedidosPorEntregar ?? 0 }}</strong>
         </div>
       </section>
 

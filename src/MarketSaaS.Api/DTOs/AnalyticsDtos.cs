@@ -26,6 +26,12 @@ public class VentasResumenResponse
 
     public int PedidosPagadosVentana { get; set; }
 
+    /// <summary>Suma de unidades (líneas) vendidas en pedidos contados en la ventana.</summary>
+    public int UnidadesVendidasVentana { get; set; }
+
+    /// <summary>Pedidos cobrados que aún no se marcaron como entregados (cola operativa).</summary>
+    public int PedidosPorEntregar { get; set; }
+
     /// <summary>Serie diaria de los últimos 30 días (UTC); solo pedidos pagados/confirmados.</summary>
     public IReadOnlyList<VentaPorDiaDto> VentasPorDia { get; set; } = [];
 

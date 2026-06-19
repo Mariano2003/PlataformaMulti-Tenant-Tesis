@@ -66,12 +66,23 @@ public class AnalyticsService : IAnalyticsService
 
         var cantidadPagados = pagadosVentana.Count;
         var montoTotal = pagadosVentana.Sum(p => p.Total);
+        var unidadesVendidas = pagadosVentana.SelectMany(p => p.Lineas).Sum(l => l.Cantidad);
+
+        static bool PendienteEntrega(string estado) =>
+            estado is PedidoEstados.Pagado
+                or PedidoEstados.Confirmado
+                or PedidoEstados.EnPreparacion
+                or PedidoEstados.Enviado;
+
+        var pedidosPorEntregar = todos.Count(p => PendienteEntrega(p.Estado));
 
         return new VentasResumenResponse
         {
             PedidosPorEstado = pedidosPorEstado,
             MontoTotalVentana = montoTotal,
             PedidosPagadosVentana = cantidadPagados,
+            UnidadesVendidasVentana = unidadesVendidas,
+            PedidosPorEntregar = pedidosPorEntregar,
             VentasPorDia = ventasPorDia,
             TicketPromedioVentana = cantidadPagados > 0 ? montoTotal / cantidadPagados : 0,
             ProductosTop = productosTop,
