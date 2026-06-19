@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {
-  ArcElement,
   BarElement,
   CategoryScale,
   Chart as ChartJS,
@@ -11,21 +10,13 @@ import {
 } from 'chart.js'
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { Bar, Doughnut } from 'vue-chartjs'
+import { Bar } from 'vue-chartjs'
 import AdminNav from '../../components/admin/AdminNav.vue'
 import { useAuthedFetch } from '../../composables/useAuthedFetch'
 import { useAuthStore } from '../../stores/auth'
 import type { VentasResumenDto } from '../../types/api'
 
-ChartJS.register(
-  Title,
-  Tooltip,
-  Legend,
-  BarElement,
-  CategoryScale,
-  LinearScale,
-  ArcElement,
-)
+ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 
 function chartPalette() {
   const cs = getComputedStyle(document.documentElement)
@@ -38,6 +29,7 @@ function chartPalette() {
     muted: pick('--text', '#6b7280'),
     border: pick('--border', '#e5e7eb'),
     accent: pick('--accent', '#aa3bff'),
+    accent2: pick('--primary', '#6366f1'),
   }
 }
 
@@ -58,13 +50,16 @@ const precioFmt = new Intl.NumberFormat('es-AR', {
   maximumFractionDigits: 0,
 })
 
-const barData = computed(() => {
+const ventasPorDiaData = computed(() => {
   const t = chartPalette()
   const r = resumen.value
   if (!r?.ventasPorDia?.length) {
     return {
       labels: [] as string[],
-      datasets: [{ label: 'Monto (ARS)', data: [] as number[], backgroundColor: t.accent }],
+      datasets: [
+        { label: 'Monto (ARS)', data: [] as number[], backgroundColor: t.accent, yAxisID: 'y' },
+        { label: 'Pedidos', data: [] as number[], backgroundColor: t.accent2, yAxisID: 'y1' },
+      ],
     }
   }
   return {
@@ -75,12 +70,20 @@ const barData = computed(() => {
         data: r.ventasPorDia.map((v) => v.montoTotal),
         backgroundColor: t.accent,
         borderRadius: 6,
+        yAxisID: 'y',
+      },
+      {
+        label: 'Cantidad de pedidos',
+        data: r.ventasPorDia.map((v) => v.cantidadPedidos),
+        backgroundColor: `${t.accent2}99`,
+        borderRadius: 6,
+        yAxisID: 'y1',
       },
     ],
   }
 })
 
-const barOptions = computed(() => {
+const ventasPorDiaOptions = computed(() => {
   const t = chartPalette()
   return {
     responsive: true,
@@ -92,7 +95,7 @@ const barOptions = computed(() => {
       },
       title: {
         display: true,
-        text: 'Ventas por día (últimos 30 días, UTC)',
+        text: 'Ventas y pedidos por día (últimos 30 días, UTC)',
         color: t.muted,
         font: { size: 13, weight: 'bold' as const },
       },
@@ -103,60 +106,82 @@ const barOptions = computed(() => {
         grid: { color: t.border },
       },
       y: {
+        type: 'linear' as const,
+        position: 'left' as const,
         beginAtZero: true,
         ticks: { color: t.muted },
         grid: { color: t.border },
+        title: { display: true, text: 'ARS', color: t.muted },
+      },
+      y1: {
+        type: 'linear' as const,
+        position: 'right' as const,
+        beginAtZero: true,
+        ticks: { color: t.muted, stepSize: 1 },
+        grid: { drawOnChartArea: false },
+        title: { display: true, text: 'Pedidos', color: t.muted },
       },
     },
   }
 })
 
-const doughnutData = computed(() => {
+const topProductosData = computed(() => {
   const t = chartPalette()
-  const r = resumen.value
-  if (!r?.pedidosPorEstado?.length) {
+  const items = resumen.value?.productosTop ?? []
+  if (!items.length) {
     return {
       labels: [] as string[],
-      datasets: [{ data: [] as number[], backgroundColor: [] as string[] }],
+      datasets: [{ label: 'Ingresos (ARS)', data: [] as number[], backgroundColor: t.accent }],
     }
   }
-  const colors = [
-    t.accent,
-    '#818cf8',
-    '#22d3ee',
-    '#f472b6',
-    '#a3e635',
-    '#fb923c',
-    '#94a3b8',
-  ]
+  const ordenados = [...items].reverse()
   return {
-    labels: r.pedidosPorEstado.map((p) => p.estado),
+    labels: ordenados.map((p) => p.nombre),
     datasets: [
       {
-        data: r.pedidosPorEstado.map((p) => p.cantidad),
-        backgroundColor: r.pedidosPorEstado.map((_, i) => colors[i % colors.length]!),
-        borderWidth: 2,
-        borderColor: t.border,
+        label: 'Ingresos (ARS)',
+        data: ordenados.map((p) => p.montoTotal),
+        backgroundColor: t.accent,
+        borderRadius: 6,
       },
     ],
   }
 })
 
-const doughnutOptions = computed(() => {
+const topProductosOptions = computed(() => {
   const t = chartPalette()
   return {
+    indexAxis: 'y' as const,
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: {
-        position: 'bottom' as const,
-        labels: { color: t.text, padding: 14 },
-      },
+      legend: { display: false },
       title: {
         display: true,
-        text: 'Pedidos por estado',
+        text: 'Top productos por ingresos (30 días)',
         color: t.muted,
         font: { size: 13, weight: 'bold' as const },
+      },
+      tooltip: {
+        callbacks: {
+          afterLabel(ctx: { raw: unknown; dataIndex: number }) {
+            const items = resumen.value?.productosTop ?? []
+            const idx = items.length - 1 - ctx.dataIndex
+            const p = items[idx]
+            return p ? `${p.cantidadVendida} unidades vendidas` : ''
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        beginAtZero: true,
+        ticks: { color: t.muted },
+        grid: { color: t.border },
+      },
+      y: {
+        ticks: { color: t.muted },
+        grid: { color: t.border },
       },
     },
   }
@@ -253,34 +278,20 @@ onMounted(() => {
         </div>
       </section>
 
-      <section v-if="resumen.productosTop?.length" class="admin-card admin-top-productos">
-        <h2>Top productos (30 días)</h2>
-        <div class="admin-table-wrap">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>Producto</th>
-                <th>Unidades</th>
-                <th>Ingresos</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="p in resumen.productosTop" :key="p.productoId">
-                <td>{{ p.nombre }}</td>
-                <td>{{ p.cantidadVendida }}</td>
-                <td>{{ precioFmt.format(p.montoTotal) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
       <div class="admin-charts">
         <div class="admin-chart-box">
-          <Bar :data="barData" :options="barOptions" />
+          <Bar :data="ventasPorDiaData" :options="ventasPorDiaOptions" />
         </div>
-        <div class="admin-chart-box admin-chart-box--compact">
-          <Doughnut :data="doughnutData" :options="doughnutOptions" />
+        <div
+          class="admin-chart-box admin-chart-box--compact"
+          :class="{ 'admin-chart-box--empty': !resumen.productosTop?.length }"
+        >
+          <Bar
+            v-if="resumen.productosTop?.length"
+            :data="topProductosData"
+            :options="topProductosOptions"
+          />
+          <p v-else class="admin-chart-empty">Todavía no hay ventas de productos en los últimos 30 días.</p>
         </div>
       </div>
     </template>
@@ -288,11 +299,17 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.admin-top-productos {
-  margin-top: 1.25rem;
+.admin-chart-empty {
+  margin: 0;
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.95rem;
 }
-.admin-top-productos h2 {
-  margin: 0 0 0.75rem;
-  font-size: 1.05rem;
+.admin-chart-box--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 16rem;
 }
 </style>
