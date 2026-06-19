@@ -119,6 +119,8 @@ export interface VentasResumenDto {
   pedidosPorEstado: PedidoEstadoConteoDto[]
   montoTotalVentana: number
   pedidosPagadosVentana: number
+  unidadesVendidasVentana: number
+  pedidosPorEntregar: number
   ventasPorDia: VentaPorDiaDto[]
   ticketPromedioVentana: number
   productosTop: ProductoTopVentaDto[]
