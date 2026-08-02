@@ -104,6 +104,11 @@ public sealed class MercadoPagoOAuthService : IMercadoPagoOAuthService
             ["redirect_uri"] = ObtenerRedirectUri(),
         };
 
+        // Sin test_token=true, MP autoriza al vendedor de prueba pero el intercambio del code falla
+        // o no entrega credenciales de sandbox (queda “autorizado” sin vincular en la web).
+        if (_opciones.OAuthTestToken)
+            form["test_token"] = "true";
+
         if (_opciones.OAuthUsePkce)
         {
             if (string.IsNullOrWhiteSpace(pendiente.CodeVerifier))

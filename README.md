@@ -185,8 +185,11 @@ Cada dueño puede vincular su cuenta desde **Admin → Mercado Pago → Conectar
 | `MercadoPago__PublicApiBaseUrl` | URL pública de la API (para callback y webhooks) |
 | `MercadoPago__PublicAppBaseUrl` | URL del front (redirección tras OAuth) |
 | `MercadoPago__OAuthUsePkce` | `true` solo si lo activaste en el panel MP |
+| `MercadoPago__OAuthTestToken` | `true` para vincular **vendedores de prueba** (envía `test_token=true` al intercambiar el code). Sin esto, MP autoriza pero no queda vinculado en la web |
 
 Opcional: `MercadoPago__OAuthRedirectUri` si querés fijar la URI distinta a `{PublicApiBaseUrl}/api/mercadopago/oauth/callback`.
+
+**Atajo demo:** en Admin → Mercado Pago podés pegar el Access Token `TEST-…` sin usar OAuth.
 
 ### 3. Flujo
 
