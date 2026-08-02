@@ -52,7 +52,7 @@ public sealed class MercadoPagoOptions
     /// Obligatorio para que un <b>vendedor de prueba</b> quede vinculado en la web (sin esto, MP autoriza pero no guarda).
     /// Con vendedores reales de producción: <c>MercadoPago__OAuthTestToken=false</c>.
     /// </summary>
-    public bool OAuthTestToken { get; set; } = true
+    public bool OAuthTestToken { get; set; } = true;
 
     /// <summary>
     /// Si true (default), las redirecciones al front usan <c>/#/ruta</c> (router hash en Render).
