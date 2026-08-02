@@ -32,6 +32,9 @@ const accessTokenManual = ref('')
 const mostrarAvanzado = ref(false)
 const error = ref<string | null>(null)
 const okMsg = ref<string | null>(null)
+/** Mensaje que viene del retorno OAuth; no debe borrarse al cargar el contexto. */
+const mensajeOAuthPersistente = ref<string | null>(null)
+const oauthResultado = ref<'ok' | 'error' | null>(null)
 
 const listoParaCobrar = computed(
   () =>
@@ -40,7 +43,10 @@ const listoParaCobrar = computed(
 
 async function cargarContexto() {
   cargando.value = true
-  error.value = null
+  // No borrar error/ok del retorno OAuth (antes se limpiaban y parecía que “no vinculó”).
+  if (oauthResultado.value === null) {
+    error.value = null
+  }
   const s = slug.value
   if (!s) {
     error.value = 'Slug inválido.'
@@ -50,21 +56,45 @@ async function cargarContexto() {
   try {
     const res = await authedFetch(`/api/negocios/${encodeURIComponent(s)}/admin/contexto`)
     if (res.status === 401) {
+      const redirectPath = `/admin/${s}/mercadopago`
+      if (oauthResultado.value === 'ok') {
+        // El vínculo puede haberse guardado en la API; la sesión JWT se perdió al ir a MP.
+        await router.replace({
+          name: 'admin-login',
+          params: { slug: s },
+          query: {
+            redirect: redirectPath,
+            mp_linked: '1',
+          },
+        })
+        return
+      }
       auth.cerrarSesion()
       await router.replace({
         name: 'admin-login',
         params: { slug: s },
-        query: { redirect: route.fullPath },
+        query: { redirect: redirectPath },
       })
       return
     }
     if (!res.ok) {
-      error.value = res.status === 403 ? 'Sin permiso para esta tienda.' : `Error ${res.status}`
+      if (oauthResultado.value === null) {
+        error.value = res.status === 403 ? 'Sin permiso para esta tienda.' : `Error ${res.status}`
+      }
       return
     }
     contexto.value = (await res.json()) as ContextoAdmin
+    if (oauthResultado.value === 'ok' && listoParaCobrar.value) {
+      okMsg.value =
+        mensajeOAuthPersistente.value ??
+        'Listo: tu Mercado Pago quedó vinculado. Ya podés cobrar en esta tienda.'
+    } else if (oauthResultado.value === 'ok' && !listoParaCobrar.value) {
+      error.value =
+        'Mercado Pago confirmó la autorización, pero la tienda sigue sin credenciales. Revisá los logs de la API o usá el token manual.'
+      mostrarAvanzado.value = true
+    }
   } catch {
-    error.value = 'Error de red.'
+    if (oauthResultado.value === null) error.value = 'Error de red.'
   } finally {
     cargando.value = false
   }
@@ -73,14 +103,19 @@ async function cargarContexto() {
 async function procesarRetornoOAuth() {
   const oauth = route.query.mp_oauth
   if (oauth === 'ok') {
-    okMsg.value = 'Listo: tu Mercado Pago quedó vinculado. Ya podés cobrar en esta tienda.'
+    oauthResultado.value = 'ok'
+    mensajeOAuthPersistente.value =
+      'Listo: tu Mercado Pago quedó vinculado. Ya podés cobrar en esta tienda.'
+    okMsg.value = mensajeOAuthPersistente.value
     await router.replace({
       name: 'admin-mercadopago',
       params: { slug: slug.value },
     })
   } else if (oauth === 'error') {
+    oauthResultado.value = 'error'
     const msg =
       typeof route.query.mp_msg === 'string' ? route.query.mp_msg : 'No se pudo vincular la cuenta.'
+    mensajeOAuthPersistente.value = msg
     error.value = msg
     mostrarAvanzado.value = true
     await router.replace({

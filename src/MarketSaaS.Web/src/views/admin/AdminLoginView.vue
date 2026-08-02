@@ -65,6 +65,9 @@ async function enviar() {
           Ingresá con un usuario <strong>SuperAdmin</strong> o <strong>AdminTienda</strong> de este
           negocio.
         </p>
+        <p v-if="route.query.mp_linked === '1'" class="portal-auth__lead" style="color: #15803d">
+          Mercado Pago ya recibió la autorización. Iniciá sesión para ver si la tienda quedó vinculada.
+        </p>
 
         <form class="portal-form" @submit.prevent="enviar">
           <label class="portal-field">
