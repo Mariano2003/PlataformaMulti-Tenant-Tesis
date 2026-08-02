@@ -1,4 +1,4 @@
-using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text.Json;
 using MarketSaaS.Api.DTOs;
 using MarketSaaS.Api.Infrastructure;
@@ -15,6 +15,12 @@ namespace MarketSaaS.Api.Services;
 public sealed class MercadoPagoOAuthService : IMercadoPagoOAuthService
 {
     private static readonly TimeSpan ValidezState = TimeSpan.FromMinutes(10);
+
+    private static readonly JsonSerializerOptions JsonOpts = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+    };
 
     private readonly IMongoCollection<MercadoPagoOAuthState> _states;
     private readonly INegocioService _negocios;
@@ -97,35 +103,50 @@ public sealed class MercadoPagoOAuthService : IMercadoPagoOAuthService
             throw new InvalidOperationException(
                 "El enlace de autorización expiró. Volvé a tocar «Conectar con Mercado Pago».");
 
-        // El code de MP es de un solo uso: hay que mandar test_token bien a la primera.
-        // true = vendedores/cuentas de prueba (sandbox). false = vendedor real.
+        // Docs MP: Content-Type application/json + test_token=true para vendedores de prueba.
+        // https://www.mercadopago.com.ar/developers/es/docs/security/oauth/creation
         var usarTestToken = _opciones.OAuthTestToken;
-        var form = CrearFormToken(code.Trim(), pendiente, usarTestToken);
+        var body = new MercadoPagoOAuthTokenRequest
+        {
+            ClientId = _opciones.OAuthClientId.Trim(),
+            ClientSecret = _opciones.OAuthClientSecret.Trim(),
+            GrantType = "authorization_code",
+            Code = code.Trim(),
+            RedirectUri = ObtenerRedirectUri(),
+            TestToken = usarTestToken ? "true" : "false",
+        };
+
+        if (_opciones.OAuthUsePkce)
+        {
+            if (string.IsNullOrWhiteSpace(pendiente.CodeVerifier))
+                throw new InvalidOperationException("Falta code_verifier PKCE. Revisá MercadoPago:OAuthUsePkce.");
+            body.CodeVerifier = pendiente.CodeVerifier;
+        }
 
         _log.LogInformation(
             "MP OAuth: canjeando code para tienda {Slug} (test_token={Test})",
             pendiente.Slug,
-            usarTestToken);
+            body.TestToken);
 
-        var token = await SolicitarTokenAsync(form, ct);
-        if (token is null || string.IsNullOrWhiteSpace(token.Access_token))
+        var token = await SolicitarTokenAsync(body, ct);
+        if (token is null || string.IsNullOrWhiteSpace(token.AccessToken))
         {
             var detalle = HumanizarErrorToken(token);
             _log.LogWarning(
                 "MP OAuth callback falló para negocio {NegocioId} (test_token={Test}): {Detalle}",
                 pendiente.NegocioId,
-                usarTestToken,
+                body.TestToken,
                 detalle);
             throw new InvalidOperationException(detalle);
         }
 
-        var userId = token.User_id?.ToString();
+        var userId = token.UserId?.ToString();
         await _negocios.GuardarCredencialesOAuthAsync(
             pendiente.NegocioId,
-            token.Access_token,
-            token.Refresh_token,
+            token.AccessToken,
+            token.RefreshToken,
             userId,
-            token.Expires_in,
+            token.ExpiresIn,
             ct);
 
         await _states.DeleteOneAsync(s => s.Id == pendiente.Id, ct);
@@ -134,7 +155,7 @@ public sealed class MercadoPagoOAuthService : IMercadoPagoOAuthService
             "MP OAuth: tienda {Slug} vinculada (user_id={UserId}, test_token={Test})",
             pendiente.Slug,
             userId,
-            usarTestToken);
+            body.TestToken);
 
         return pendiente.Slug;
     }
@@ -148,51 +169,27 @@ public sealed class MercadoPagoOAuthService : IMercadoPagoOAuthService
         return pendiente?.Slug;
     }
 
-    private Dictionary<string, string> CrearFormToken(string code, MercadoPagoOAuthState pendiente, bool testToken)
-    {
-        var form = new Dictionary<string, string>
-        {
-            ["grant_type"] = "authorization_code",
-            ["client_id"] = _opciones.OAuthClientId.Trim(),
-            ["client_secret"] = _opciones.OAuthClientSecret.Trim(),
-            ["code"] = code,
-            ["redirect_uri"] = ObtenerRedirectUri(),
-        };
-
-        if (testToken)
-            form["test_token"] = "true";
-
-        if (_opciones.OAuthUsePkce)
-        {
-            if (string.IsNullOrWhiteSpace(pendiente.CodeVerifier))
-                throw new InvalidOperationException("Falta code_verifier PKCE. Revisá MercadoPago:OAuthUsePkce.");
-            form["code_verifier"] = pendiente.CodeVerifier;
-        }
-
-        return form;
-    }
-
     private static string HumanizarErrorToken(MercadoPagoOAuthTokenResponse? token)
     {
-        var raw = (token?.Message ?? token?.Error ?? "").Trim();
+        var raw = (token?.ErrorDescription ?? token?.Message ?? token?.Error ?? "").Trim();
         if (string.IsNullOrEmpty(raw))
         {
             return "No se pudo vincular la cuenta. Si usás un vendedor de prueba, " +
-                   "asegurate de que la API tenga MercadoPago:OAuthTestToken=true y volvé a conectar.";
+                   "confirmá país Argentina y que la API tenga MercadoPago:OAuthTestToken=true.";
         }
 
         var lower = raw.ToLowerInvariant();
         if (lower.Contains("invalid_grant") || lower.Contains("authorization_code"))
         {
             return "El código de autorización no es válido o ya se usó. " +
-                   "Volvé a tocar «Conectar con Mercado Pago» e intentá de nuevo. " +
-                   "Con vendedor de prueba necesitás OAuthTestToken=true en la API.";
+                   "Volvé a tocar «Conectar con Mercado Pago». " +
+                   "Con vendedor de prueba necesitás OAuthTestToken=true.";
         }
 
         if (lower.Contains("redirect_uri"))
         {
-            return "La Redirect URI no coincide con la configurada en Mercado Pago Developers. " +
-                   "Debe ser exactamente: {PublicApiBaseUrl}/api/mercadopago/oauth/callback";
+            return "La Redirect URI no coincide con Mercado Pago Developers. " +
+                   "Debe ser exactamente la URL de la API …/api/mercadopago/oauth/callback";
         }
 
         return raw.Length > 180 ? raw[..180] + "…" : raw;
@@ -212,25 +209,25 @@ public sealed class MercadoPagoOAuthService : IMercadoPagoOAuthService
     }
 
     private async Task<MercadoPagoOAuthTokenResponse?> SolicitarTokenAsync(
-        Dictionary<string, string> form,
+        MercadoPagoOAuthTokenRequest body,
         CancellationToken ct)
     {
         var http = _httpClientFactory.CreateClient(nameof(MercadoPagoOAuthService));
-        using var content = new FormUrlEncodedContent(form);
-        content.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
+        using var response = await http.PostAsJsonAsync(
+            "https://api.mercadopago.com/oauth/token",
+            body,
+            JsonOpts,
+            ct);
 
-        using var response = await http.PostAsync("https://api.mercadopago.com/oauth/token", content, ct);
         var json = await response.Content.ReadAsStringAsync(ct);
-        var token = JsonSerializer.Deserialize<MercadoPagoOAuthTokenResponse>(
-            json,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var token = JsonSerializer.Deserialize<MercadoPagoOAuthTokenResponse>(json, JsonOpts);
 
         if (!response.IsSuccessStatusCode)
         {
             _log.LogWarning(
                 "MP OAuth token HTTP {Status}: {Body}",
                 (int)response.StatusCode,
-                json.Length > 300 ? json[..300] : json);
+                json.Length > 400 ? json[..400] : json);
             return token;
         }
 

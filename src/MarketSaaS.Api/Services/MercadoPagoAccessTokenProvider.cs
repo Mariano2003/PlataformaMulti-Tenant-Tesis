@@ -1,4 +1,4 @@
-using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text.Json;
 using MarketSaaS.Api.DTOs;
 using MarketSaaS.Api.Models;
@@ -11,6 +11,12 @@ namespace MarketSaaS.Api.Services;
 public sealed class MercadoPagoAccessTokenProvider : IMercadoPagoAccessTokenProvider
 {
     private static readonly TimeSpan MargenRenovacion = TimeSpan.FromDays(14);
+
+    private static readonly JsonSerializerOptions JsonOpts = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+    };
 
     private readonly INegocioService _negocios;
     private readonly MercadoPagoOptions _opciones;
@@ -67,30 +73,31 @@ public sealed class MercadoPagoAccessTokenProvider : IMercadoPagoAccessTokenProv
         if (negocio is null || string.IsNullOrWhiteSpace(negocio.MercadoPagoRefreshToken))
             return null;
 
-        var form = new Dictionary<string, string>
+        var body = new MercadoPagoOAuthTokenRequest
         {
-            ["grant_type"] = "refresh_token",
-            ["client_id"] = clientId,
-            ["client_secret"] = clientSecret,
-            ["refresh_token"] = negocio.MercadoPagoRefreshToken.Trim(),
+            ClientId = clientId,
+            ClientSecret = clientSecret,
+            GrantType = "refresh_token",
+            RefreshToken = negocio.MercadoPagoRefreshToken.Trim(),
+            TestToken = _opciones.OAuthTestToken ? "true" : "false",
         };
 
         try
         {
-            var token = await SolicitarTokenAsync(form, ct);
-            if (token is null || string.IsNullOrWhiteSpace(token.Access_token))
+            var token = await SolicitarTokenAsync(body, ct);
+            if (token is null || string.IsNullOrWhiteSpace(token.AccessToken))
                 return null;
 
             await _negocios.GuardarCredencialesOAuthAsync(
                 negocioId,
-                token.Access_token,
-                token.Refresh_token ?? negocio.MercadoPagoRefreshToken,
+                token.AccessToken,
+                token.RefreshToken ?? negocio.MercadoPagoRefreshToken,
                 negocio.MercadoPagoUserId,
-                token.Expires_in,
+                token.ExpiresIn,
                 ct);
 
             _log.LogInformation("MP OAuth: access token renovado para negocio {NegocioId}", negocioId);
-            return token.Access_token.Trim();
+            return token.AccessToken.Trim();
         }
         catch (Exception ex)
         {
@@ -99,19 +106,19 @@ public sealed class MercadoPagoAccessTokenProvider : IMercadoPagoAccessTokenProv
         }
     }
 
-    internal async Task<MercadoPagoOAuthTokenResponse?> SolicitarTokenAsync(
-        Dictionary<string, string> form,
+    private async Task<MercadoPagoOAuthTokenResponse?> SolicitarTokenAsync(
+        MercadoPagoOAuthTokenRequest body,
         CancellationToken ct)
     {
         var http = _httpClientFactory.CreateClient(nameof(MercadoPagoAccessTokenProvider));
-        using var content = new FormUrlEncodedContent(form);
-        content.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
+        using var response = await http.PostAsJsonAsync(
+            "https://api.mercadopago.com/oauth/token",
+            body,
+            JsonOpts,
+            ct);
 
-        using var response = await http.PostAsync("https://api.mercadopago.com/oauth/token", content, ct);
         var json = await response.Content.ReadAsStringAsync(ct);
-        var token = JsonSerializer.Deserialize<MercadoPagoOAuthTokenResponse>(
-            json,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var token = JsonSerializer.Deserialize<MercadoPagoOAuthTokenResponse>(json, JsonOpts);
 
         if (!response.IsSuccessStatusCode)
         {
