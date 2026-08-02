@@ -29,8 +29,14 @@ const cargando = ref(true)
 const conectando = ref(false)
 const guardandoToken = ref(false)
 const accessTokenManual = ref('')
+const mostrarAvanzado = ref(false)
 const error = ref<string | null>(null)
 const okMsg = ref<string | null>(null)
+
+const listoParaCobrar = computed(
+  () =>
+    Boolean(contexto.value?.mercadoPagoConectadoOAuth || contexto.value?.mercadoPagoTiendaConfigurado),
+)
 
 async function cargarContexto() {
   cargando.value = true
@@ -64,18 +70,20 @@ async function cargarContexto() {
   }
 }
 
-function procesarRetornoOAuth() {
+async function procesarRetornoOAuth() {
   const oauth = route.query.mp_oauth
   if (oauth === 'ok') {
-    okMsg.value = 'Cuenta de Mercado Pago vinculada correctamente.'
-    void router.replace({
+    okMsg.value = 'Listo: tu Mercado Pago quedó vinculado. Ya podés cobrar en esta tienda.'
+    await router.replace({
       name: 'admin-mercadopago',
       params: { slug: slug.value },
     })
   } else if (oauth === 'error') {
-    const msg = typeof route.query.mp_msg === 'string' ? route.query.mp_msg : 'No se pudo vincular la cuenta.'
+    const msg =
+      typeof route.query.mp_msg === 'string' ? route.query.mp_msg : 'No se pudo vincular la cuenta.'
     error.value = msg
-    void router.replace({
+    mostrarAvanzado.value = true
+    await router.replace({
       name: 'admin-mercadopago',
       params: { slug: slug.value },
     })
@@ -124,9 +132,9 @@ async function conectarMercadoPago() {
   }
 }
 
-onMounted(() => {
-  procesarRetornoOAuth()
-  void cargarContexto()
+onMounted(async () => {
+  await procesarRetornoOAuth()
+  await cargarContexto()
 })
 
 const desconectando = ref(false)
@@ -245,22 +253,24 @@ function salir() {
       <section class="admin-panel">
         <p class="estado">
           Estado:
-          <strong v-if="contexto.mercadoPagoConectadoOAuth">Cuenta vinculada</strong>
-          <strong v-else-if="contexto.mercadoPagoTiendaConfigurado">Cuenta configurada</strong>
+          <strong v-if="listoParaCobrar" class="estado-ok">Listo para cobrar</strong>
           <strong v-else>Sin cuenta vinculada</strong>
         </p>
 
         <template v-if="contexto.mercadoPagoOAuthDisponible">
           <p class="hint">
-            Autorizá la app de la plataforma con un clic. Los cobros de tu tienda irán a tu Mercado Pago sin
-            copiar tokens ni configurar webhooks manualmente.
+            Con un clic vinculás tu Mercado Pago. Los cobros de esta tienda van a tu cuenta (sin copiar
+            tokens). Para pruebas, autorizá con un <strong>vendedor de prueba</strong> de Developers.
           </p>
           <p v-if="contexto.mercadoPagoConectadoOAuth" class="oauth-meta">
-            Vinculada vía OAuth
+            Vinculada con Mercado Pago
             <span v-if="contexto.mercadoPagoUserId"> (usuario {{ contexto.mercadoPagoUserId }})</span>
             <span v-if="contexto.mercadoPagoConectadoEn">
               — {{ new Date(contexto.mercadoPagoConectadoEn).toLocaleString() }}
             </span>
+          </p>
+          <p v-else-if="contexto.mercadoPagoTiendaConfigurado" class="oauth-meta">
+            Configurada con Access Token (también válida para cobrar).
           </p>
           <button
             type="button"
@@ -271,13 +281,13 @@ function salir() {
             {{
               conectando
                 ? 'Redirigiendo a Mercado Pago…'
-                : contexto.mercadoPagoConectadoOAuth
-                  ? 'Reconectar cuenta'
+                : listoParaCobrar
+                  ? 'Reconectar con Mercado Pago'
                   : 'Conectar con Mercado Pago'
             }}
           </button>
           <button
-            v-if="contexto.mercadoPagoConectadoOAuth || contexto.mercadoPagoTiendaConfigurado"
+            v-if="listoParaCobrar"
             type="button"
             class="btn-disconnect"
             :disabled="desconectando || conectando"
@@ -287,42 +297,41 @@ function salir() {
           </button>
         </template>
         <p v-else class="hint">
-          La vinculación OAuth no está habilitada en la plataforma. Podés pegar un Access Token de
-          prueba abajo, o pedirle al administrador que configure OAuth en la API.
+          La vinculación automática no está habilitada en la plataforma. Usá la opción avanzada o pedile
+          al administrador que configure OAuth en la API.
         </p>
-
-        <hr class="sep" />
-
-        <h2 class="subtitulo">Atajo para pruebas (recomendado)</h2>
-        <p class="hint">
-          En
-          <a href="https://www.mercadopago.com.ar/developers/panel/app" target="_blank" rel="noopener"
-            >Mercado Pago Developers</a
-          >
-          → tu app → <strong>Credenciales de prueba</strong> → copiá el Access Token (<code>TEST-…</code>)
-          y pegalo acá. No hace falta OAuth ni vendedor de prueba.
-        </p>
-        <label class="field">
-          <span>Access Token de prueba</span>
-          <input
-            v-model="accessTokenManual"
-            type="password"
-            autocomplete="off"
-            placeholder="TEST-…"
-            maxlength="512"
-          />
-        </label>
-        <button
-          type="button"
-          class="btn-connect btn-connect--alt"
-          :disabled="guardandoToken || conectando"
-          @click="guardarTokenManual"
-        >
-          {{ guardandoToken ? 'Guardando…' : 'Guardar token de prueba' }}
-        </button>
 
         <p v-if="error" class="err">{{ error }}</p>
         <p v-if="okMsg" class="ok">{{ okMsg }}</p>
+
+        <details class="avanzado" :open="mostrarAvanzado || undefined">
+          <summary>Opciones avanzadas (token manual)</summary>
+          <p class="hint">
+            Solo si OAuth falla. En
+            <a href="https://www.mercadopago.com.ar/developers/panel/app" target="_blank" rel="noopener"
+              >Developers</a
+            >
+            → Credenciales de prueba → Access Token (<code>TEST-…</code>).
+          </p>
+          <label class="field">
+            <span>Access Token</span>
+            <input
+              v-model="accessTokenManual"
+              type="password"
+              autocomplete="off"
+              placeholder="TEST-…"
+              maxlength="512"
+            />
+          </label>
+          <button
+            type="button"
+            class="btn-connect btn-connect--alt"
+            :disabled="guardandoToken || conectando"
+            @click="guardarTokenManual"
+          >
+            {{ guardandoToken ? 'Guardando…' : 'Guardar token' }}
+          </button>
+        </details>
       </section>
     </template>
   </div>
@@ -373,15 +382,20 @@ function salir() {
 .btn-connect--alt {
   background: #0f766e;
 }
-.sep {
-  border: none;
-  border-top: 1px solid var(--border, #e5e7eb);
-  margin: 1.25rem 0;
+.estado-ok {
+  color: #15803d;
 }
-.subtitulo {
-  margin: 0 0 0.5rem;
-  font-size: 1rem;
-  font-weight: 600;
+.avanzado {
+  margin-top: 1.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border, #e5e7eb);
+  font-size: 0.9rem;
+}
+.avanzado summary {
+  cursor: pointer;
+  color: var(--text-muted, #6b7280);
+  margin-bottom: 0.75rem;
+  user-select: none;
 }
 .field {
   display: flex;
