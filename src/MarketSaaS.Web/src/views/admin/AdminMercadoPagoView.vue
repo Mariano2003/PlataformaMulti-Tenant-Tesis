@@ -27,6 +27,8 @@ interface ContextoAdmin {
 const contexto = ref<ContextoAdmin | null>(null)
 const cargando = ref(true)
 const conectando = ref(false)
+const guardandoToken = ref(false)
+const accessTokenManual = ref('')
 const error = ref<string | null>(null)
 const okMsg = ref<string | null>(null)
 
@@ -128,6 +130,51 @@ onMounted(() => {
 })
 
 const desconectando = ref(false)
+
+async function guardarTokenManual() {
+  okMsg.value = null
+  error.value = null
+  const s = slug.value
+  const token = accessTokenManual.value.trim()
+  if (!s) return
+  if (!token) {
+    error.value = 'Pegá el Access Token de prueba (TEST-…) de Mercado Pago Developers.'
+    return
+  }
+  guardandoToken.value = true
+  try {
+    const res = await authedFetch(`/api/negocios/${encodeURIComponent(s)}/admin/mercadopago`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accessToken: token }),
+    })
+    if (res.status === 401) {
+      auth.cerrarSesion()
+      await router.replace({
+        name: 'admin-login',
+        params: { slug: s },
+        query: { redirect: route.fullPath },
+      })
+      return
+    }
+    if (!res.ok) {
+      try {
+        const j = (await res.json()) as { error?: string }
+        error.value = j.error ?? `Error ${res.status}`
+      } catch {
+        error.value = `Error ${res.status}`
+      }
+      return
+    }
+    accessTokenManual.value = ''
+    okMsg.value = 'Access Token guardado. Ya podés cobrar con Mercado Pago (sandbox).'
+    await cargarContexto()
+  } catch {
+    error.value = 'Error de red.'
+  } finally {
+    guardandoToken.value = false
+  }
+}
 
 async function desconectarMercadoPago() {
   if (!confirm('¿Desvincular la cuenta de Mercado Pago? Dejarás de cobrar hasta reconectar.')) return
@@ -240,9 +287,39 @@ function salir() {
           </button>
         </template>
         <p v-else class="hint">
-          La vinculación OAuth no está habilitada en la plataforma. Contactá al administrador para que
-          configure las credenciales OAuth de Mercado Pago en la API.
+          La vinculación OAuth no está habilitada en la plataforma. Podés pegar un Access Token de
+          prueba abajo, o pedirle al administrador que configure OAuth en la API.
         </p>
+
+        <hr class="sep" />
+
+        <h2 class="subtitulo">Atajo para pruebas (recomendado)</h2>
+        <p class="hint">
+          En
+          <a href="https://www.mercadopago.com.ar/developers/panel/app" target="_blank" rel="noopener"
+            >Mercado Pago Developers</a
+          >
+          → tu app → <strong>Credenciales de prueba</strong> → copiá el Access Token (<code>TEST-…</code>)
+          y pegalo acá. No hace falta OAuth ni vendedor de prueba.
+        </p>
+        <label class="field">
+          <span>Access Token de prueba</span>
+          <input
+            v-model="accessTokenManual"
+            type="password"
+            autocomplete="off"
+            placeholder="TEST-…"
+            maxlength="512"
+          />
+        </label>
+        <button
+          type="button"
+          class="btn-connect btn-connect--alt"
+          :disabled="guardandoToken || conectando"
+          @click="guardarTokenManual"
+        >
+          {{ guardandoToken ? 'Guardando…' : 'Guardar token de prueba' }}
+        </button>
 
         <p v-if="error" class="err">{{ error }}</p>
         <p v-if="okMsg" class="ok">{{ okMsg }}</p>
@@ -292,6 +369,33 @@ function salir() {
 }
 .btn-connect:disabled {
   opacity: 0.65;
+}
+.btn-connect--alt {
+  background: #0f766e;
+}
+.sep {
+  border: none;
+  border-top: 1px solid var(--border, #e5e7eb);
+  margin: 1.25rem 0;
+}
+.subtitulo {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+.field input {
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--border, #e5e7eb);
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
 }
 .btn-disconnect {
   display: block;
