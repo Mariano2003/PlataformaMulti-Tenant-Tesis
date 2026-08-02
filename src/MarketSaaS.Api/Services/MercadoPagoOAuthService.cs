@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Text.Json;
 using MarketSaaS.Api.DTOs;
 using MarketSaaS.Api.Infrastructure;
@@ -93,34 +94,28 @@ public sealed class MercadoPagoOAuthService : IMercadoPagoOAuthService
 
         var pendiente = await _states.Find(s => s.State == state.Trim()).FirstOrDefaultAsync(ct);
         if (pendiente is null || pendiente.ExpiraEn < DateTime.UtcNow)
-            throw new InvalidOperationException("El enlace de autorización expiró. Volvé a intentar desde el panel.");
+            throw new InvalidOperationException(
+                "El enlace de autorización expiró. Volvé a tocar «Conectar con Mercado Pago».");
 
-        var form = new Dictionary<string, string>
-        {
-            ["grant_type"] = "authorization_code",
-            ["client_id"] = _opciones.OAuthClientId.Trim(),
-            ["client_secret"] = _opciones.OAuthClientSecret.Trim(),
-            ["code"] = code.Trim(),
-            ["redirect_uri"] = ObtenerRedirectUri(),
-        };
+        // El code de MP es de un solo uso: hay que mandar test_token bien a la primera.
+        // true = vendedores/cuentas de prueba (sandbox). false = vendedor real.
+        var usarTestToken = _opciones.OAuthTestToken;
+        var form = CrearFormToken(code.Trim(), pendiente, usarTestToken);
 
-        // Sin test_token=true, MP autoriza al vendedor de prueba pero el intercambio del code falla
-        // o no entrega credenciales de sandbox (queda “autorizado” sin vincular en la web).
-        if (_opciones.OAuthTestToken)
-            form["test_token"] = "true";
-
-        if (_opciones.OAuthUsePkce)
-        {
-            if (string.IsNullOrWhiteSpace(pendiente.CodeVerifier))
-                throw new InvalidOperationException("Falta code_verifier PKCE.");
-            form["code_verifier"] = pendiente.CodeVerifier;
-        }
+        _log.LogInformation(
+            "MP OAuth: canjeando code para tienda {Slug} (test_token={Test})",
+            pendiente.Slug,
+            usarTestToken);
 
         var token = await SolicitarTokenAsync(form, ct);
         if (token is null || string.IsNullOrWhiteSpace(token.Access_token))
         {
-            var detalle = token?.Message ?? token?.Error ?? "No se pudo obtener el access token.";
-            _log.LogWarning("MP OAuth callback falló para negocio {NegocioId}: {Detalle}", pendiente.NegocioId, detalle);
+            var detalle = HumanizarErrorToken(token);
+            _log.LogWarning(
+                "MP OAuth callback falló para negocio {NegocioId} (test_token={Test}): {Detalle}",
+                pendiente.NegocioId,
+                usarTestToken,
+                detalle);
             throw new InvalidOperationException(detalle);
         }
 
@@ -136,9 +131,10 @@ public sealed class MercadoPagoOAuthService : IMercadoPagoOAuthService
         await _states.DeleteOneAsync(s => s.Id == pendiente.Id, ct);
 
         _log.LogInformation(
-            "MP OAuth: tienda {Slug} vinculada (user_id={UserId})",
+            "MP OAuth: tienda {Slug} vinculada (user_id={UserId}, test_token={Test})",
             pendiente.Slug,
-            userId);
+            userId,
+            usarTestToken);
 
         return pendiente.Slug;
     }
@@ -150,6 +146,56 @@ public sealed class MercadoPagoOAuthService : IMercadoPagoOAuthService
 
         var pendiente = await _states.Find(s => s.State == state.Trim()).FirstOrDefaultAsync(ct);
         return pendiente?.Slug;
+    }
+
+    private Dictionary<string, string> CrearFormToken(string code, MercadoPagoOAuthState pendiente, bool testToken)
+    {
+        var form = new Dictionary<string, string>
+        {
+            ["grant_type"] = "authorization_code",
+            ["client_id"] = _opciones.OAuthClientId.Trim(),
+            ["client_secret"] = _opciones.OAuthClientSecret.Trim(),
+            ["code"] = code,
+            ["redirect_uri"] = ObtenerRedirectUri(),
+        };
+
+        if (testToken)
+            form["test_token"] = "true";
+
+        if (_opciones.OAuthUsePkce)
+        {
+            if (string.IsNullOrWhiteSpace(pendiente.CodeVerifier))
+                throw new InvalidOperationException("Falta code_verifier PKCE. Revisá MercadoPago:OAuthUsePkce.");
+            form["code_verifier"] = pendiente.CodeVerifier;
+        }
+
+        return form;
+    }
+
+    private static string HumanizarErrorToken(MercadoPagoOAuthTokenResponse? token)
+    {
+        var raw = (token?.Message ?? token?.Error ?? "").Trim();
+        if (string.IsNullOrEmpty(raw))
+        {
+            return "No se pudo vincular la cuenta. Si usás un vendedor de prueba, " +
+                   "asegurate de que la API tenga MercadoPago:OAuthTestToken=true y volvé a conectar.";
+        }
+
+        var lower = raw.ToLowerInvariant();
+        if (lower.Contains("invalid_grant") || lower.Contains("authorization_code"))
+        {
+            return "El código de autorización no es válido o ya se usó. " +
+                   "Volvé a tocar «Conectar con Mercado Pago» e intentá de nuevo. " +
+                   "Con vendedor de prueba necesitás OAuthTestToken=true en la API.";
+        }
+
+        if (lower.Contains("redirect_uri"))
+        {
+            return "La Redirect URI no coincide con la configurada en Mercado Pago Developers. " +
+                   "Debe ser exactamente: {PublicApiBaseUrl}/api/mercadopago/oauth/callback";
+        }
+
+        return raw.Length > 180 ? raw[..180] + "…" : raw;
     }
 
     private string ObtenerRedirectUri()
@@ -171,6 +217,8 @@ public sealed class MercadoPagoOAuthService : IMercadoPagoOAuthService
     {
         var http = _httpClientFactory.CreateClient(nameof(MercadoPagoOAuthService));
         using var content = new FormUrlEncodedContent(form);
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
+
         using var response = await http.PostAsync("https://api.mercadopago.com/oauth/token", content, ct);
         var json = await response.Content.ReadAsStringAsync(ct);
         var token = JsonSerializer.Deserialize<MercadoPagoOAuthTokenResponse>(

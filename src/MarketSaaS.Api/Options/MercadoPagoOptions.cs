@@ -48,11 +48,11 @@ public sealed class MercadoPagoOptions
     public bool OAuthUsePkce { get; set; }
 
     /// <summary>
-    /// Si true, al intercambiar el <c>code</c> OAuth se envía <c>test_token=true</c>
-    /// (obligatorio para vincular <b>vendedores de prueba</b> / sandbox).
-    /// En Render para demos: <c>MercadoPago__OAuthTestToken=true</c>. Con vendedores reales: <c>false</c>.
+    /// Si true (recomendado en demos/TFI), al intercambiar el <c>code</c> OAuth se envía <c>test_token=true</c>.
+    /// Obligatorio para que un <b>vendedor de prueba</b> quede vinculado en la web (sin esto, MP autoriza pero no guarda).
+    /// Con vendedores reales de producción: <c>MercadoPago__OAuthTestToken=false</c>.
     /// </summary>
-    public bool OAuthTestToken { get; set; }
+    public bool OAuthTestToken { get; set; } = true
 
     /// <summary>
     /// Si true (default), las redirecciones al front usan <c>/#/ruta</c> (router hash en Render).
