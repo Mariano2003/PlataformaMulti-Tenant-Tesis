@@ -71,7 +71,9 @@ public class NegociosController : ControllerBase
             Nombre = negocio.Nombre,
             Activo = negocio.Activo,
             MercadoPagoTiendaConfigurado = !string.IsNullOrWhiteSpace(negocio.MercadoPagoAccessToken),
-            MercadoPagoConectadoOAuth = !string.IsNullOrWhiteSpace(negocio.MercadoPagoRefreshToken),
+            // Refresh token o fecha de OAuth: algunos tokens TEST no traen refresh pero sí quedan vinculados.
+            MercadoPagoConectadoOAuth = !string.IsNullOrWhiteSpace(negocio.MercadoPagoRefreshToken)
+                || negocio.MercadoPagoConectadoEn.HasValue,
             MercadoPagoOAuthDisponible = _mpOAuth.ConnectHabilitado,
             MercadoPagoUserId = negocio.MercadoPagoUserId,
             MercadoPagoConectadoEn = negocio.MercadoPagoConectadoEn,
