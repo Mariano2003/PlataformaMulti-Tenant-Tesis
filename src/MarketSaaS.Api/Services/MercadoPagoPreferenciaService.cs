@@ -2,6 +2,7 @@ using MarketSaaS.Api.DTOs;
 using MarketSaaS.Api.Infrastructure;
 using MarketSaaS.Api.Models;
 using MarketSaaS.Api.Options;
+using Microsoft.AspNetCore.WebUtilities;
 using MercadoPago.Client;
 using MercadoPago.Client.Common;
 using MercadoPago.Client.Preference;
@@ -164,13 +165,28 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
             "Configurá MercadoPago:PublicAppBaseUrl o Email:PublicAppBaseUrl con la URL pública del front (ej. https://tu-app.onrender.com).");
     }
 
-    private static string ResolverUrlRetornoTienda(string? plantilla, string appBase, string slug, string pago)
+    private string ResolverUrlRetornoTienda(string? plantilla, string appBase, string slug, string pago)
     {
         if (!string.IsNullOrWhiteSpace(plantilla) && plantilla.Contains("{slug}", StringComparison.Ordinal))
             return plantilla.Replace("{slug}", Uri.EscapeDataString(slug.Trim()), StringComparison.Ordinal);
 
         var slugPath = Uri.EscapeDataString(slug.Trim());
-        return FrontAppUrls.Construir(appBase, $"/tienda/{slugPath}?pago={pago}");
+        var front = FrontAppUrls.Construir(appBase, $"/tienda/{slugPath}?pago={pago}");
+        if (!front.Contains('#'))
+            return front;
+
+        // Checkout Pro corta el pago si back_url contiene '#'. La API redirige después al front.
+        var apiBase = _opciones.PublicApiBaseUrl?.Trim().TrimEnd('/');
+        if (string.IsNullOrEmpty(apiBase))
+            return front;
+
+        return QueryHelpers.AddQueryString(
+            $"{apiBase}/api/mercadopago/retorno",
+            new Dictionary<string, string?>
+            {
+                ["slug"] = slug.Trim(),
+                ["pago"] = pago,
+            });
     }
 
     private static bool EsUrlPublicaParaMercadoPago(string? url)
