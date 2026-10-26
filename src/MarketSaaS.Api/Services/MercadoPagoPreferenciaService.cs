@@ -81,18 +81,25 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
             slugNegocio,
             backUrlSuccess);
 
-        // MP rechaza `auto_return` si la URL de success no es pública (p. ej. apunta a localhost).
-        var permiteAutoReturn = EsUrlPublicaParaMercadoPago(backUrlSuccess);
+        // MP rechaza `auto_return` si la URL de success no es pública o lleva hash de Vue (`/#/tienda/...`).
+        var permiteAutoReturn = EsUrlPublicaParaMercadoPago(backUrlSuccess)
+            && !backUrlSuccess.Contains('#', StringComparison.Ordinal);
+
+        // Con token TEST, el email real del cliente (Gmail) hace que el checkout sandbox
+        // muestre "Algo salió mal": el pagador queda precargado como cuenta real.
+        var tokenDePrueba = accessToken.StartsWith("TEST-", StringComparison.OrdinalIgnoreCase);
 
         var preferenciaRequest = new PreferenceRequest
         {
             Items = items,
             ExternalReference = pedido.Id,
-            Payer = new PreferencePayerRequest
-            {
-                Email = pedido.ClienteEmail,
-                Name = pedido.ClienteNombre,
-            },
+            Payer = tokenDePrueba
+                ? null
+                : new PreferencePayerRequest
+                {
+                    Email = pedido.ClienteEmail,
+                    Name = pedido.ClienteNombre,
+                },
             NotificationUrl = $"{baseUrl}/api/webhooks/mercadopago?n={Uri.EscapeDataString(negocio.Id)}",
             BackUrls = new PreferenceBackUrlsRequest
             {
@@ -118,7 +125,9 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
         {
             PedidoId = pedido.Id,
             PreferenciaId = preferenciaId,
-            UrlPago = preferenciaCreada.InitPoint ?? preferenciaCreada.SandboxInitPoint
+            UrlPago = (tokenDePrueba
+                    ? preferenciaCreada.SandboxInitPoint ?? preferenciaCreada.InitPoint
+                    : preferenciaCreada.InitPoint ?? preferenciaCreada.SandboxInitPoint)
                 ?? throw new InvalidOperationException("Mercado Pago no devolvió URL de pago."),
             UrlPagoSandbox = preferenciaCreada.SandboxInitPoint,
             UrlRetornoExito = backUrlSuccess,
