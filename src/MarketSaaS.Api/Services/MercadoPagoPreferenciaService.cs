@@ -82,9 +82,10 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
             slugNegocio,
             backUrlSuccess);
 
-        // MP rechaza `auto_return` si la URL de success no es pública o lleva hash de Vue (`/#/tienda/...`).
+        // MP rechaza `auto_return` si la URL no es pública, lleva `#`, o redirige (nuestro puente de la API).
         var permiteAutoReturn = EsUrlPublicaParaMercadoPago(backUrlSuccess)
-            && !backUrlSuccess.Contains('#', StringComparison.Ordinal);
+            && !backUrlSuccess.Contains('#', StringComparison.Ordinal)
+            && !backUrlSuccess.Contains("/api/mercadopago/retorno", StringComparison.OrdinalIgnoreCase);
 
         // Con token TEST, el email real del cliente (Gmail) hace que el checkout sandbox
         // muestre "Algo salió mal": el pagador queda precargado como cuenta real.
@@ -126,9 +127,9 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
         {
             PedidoId = pedido.Id,
             PreferenciaId = preferenciaId,
-            UrlPago = (tokenDePrueba
-                    ? preferenciaCreada.SandboxInitPoint ?? preferenciaCreada.InitPoint
-                    : preferenciaCreada.InitPoint ?? preferenciaCreada.SandboxInitPoint)
+            // sandbox_init_point está deprecado y abre /checkout/v1/redirect/.../error.
+            // Con credenciales de prueba, init_point ya entra al sandbox.
+            UrlPago = preferenciaCreada.InitPoint ?? preferenciaCreada.SandboxInitPoint
                 ?? throw new InvalidOperationException("Mercado Pago no devolvió URL de pago."),
             UrlPagoSandbox = preferenciaCreada.SandboxInitPoint,
             UrlRetornoExito = backUrlSuccess,
