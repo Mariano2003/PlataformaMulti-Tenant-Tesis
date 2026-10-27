@@ -87,9 +87,10 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
             && !backUrlSuccess.Contains('#', StringComparison.Ordinal)
             && !backUrlSuccess.Contains("/api/mercadopago/retorno", StringComparison.OrdinalIgnoreCase);
 
-        // Con token TEST, el email real del cliente (Gmail) hace que el checkout sandbox
-        // muestre "Algo salió mal": el pagador queda precargado como cuenta real.
-        var tokenDePrueba = accessToken.StartsWith("TEST-", StringComparison.OrdinalIgnoreCase);
+        // OAuth con test_token deja un cobrador de prueba. El Gmail del cliente, mandado
+        // como payer, hace que el checkout muestre "Algo salió mal".
+        var tokenDePrueba = _opciones.OAuthTestToken
+            || accessToken.StartsWith("TEST-", StringComparison.OrdinalIgnoreCase);
 
         var preferenciaRequest = new PreferenceRequest
         {
@@ -127,13 +128,28 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
         {
             PedidoId = pedido.Id,
             PreferenciaId = preferenciaId,
-            // sandbox_init_point está deprecado y abre /checkout/v1/redirect/.../error.
-            // Con credenciales de prueba, init_point ya entra al sandbox.
-            UrlPago = preferenciaCreada.InitPoint ?? preferenciaCreada.SandboxInitPoint
-                ?? throw new InvalidOperationException("Mercado Pago no devolvió URL de pago."),
+            // El host sandbox.mercadopago.com.ar/checkout/v1/redirect/.../error es una
+            // página deprecada. El checkout vigente es www + pref_id, también en pruebas.
+            UrlPago = UrlCheckoutVigente(preferenciaCreada.InitPoint, preferenciaId),
             UrlPagoSandbox = preferenciaCreada.SandboxInitPoint,
             UrlRetornoExito = backUrlSuccess,
         };
+    }
+
+    /// <summary>
+    /// Mercado Pago abre el error fijo <c>p=260d7251…</c> si el navegador entra a
+    /// <c>sandbox.mercadopago.com.ar/checkout/v1/redirect</c>. El checkout actual es
+    /// <c>www.mercadopago.com.ar/checkout/v1/redirect?pref_id=</c>.
+    /// </summary>
+    private static string UrlCheckoutVigente(string? initPoint, string preferenciaId)
+    {
+        if (!string.IsNullOrWhiteSpace(initPoint)
+            && initPoint.Contains("www.mercadopago.com", StringComparison.OrdinalIgnoreCase)
+            && !initPoint.Contains("sandbox.", StringComparison.OrdinalIgnoreCase))
+            return initPoint;
+
+        return "https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id="
+            + Uri.EscapeDataString(preferenciaId);
     }
 
     private void ValidarUrlBaseFront(string appBase, string apiBase)
