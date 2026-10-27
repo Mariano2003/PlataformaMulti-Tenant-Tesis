@@ -82,42 +82,37 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
             slugNegocio,
             backUrlSuccess);
 
-        // MP rechaza `auto_return` si la URL no es pública, lleva `#`, o redirige (nuestro puente de la API).
+        // MP rechaza auto_return si la URL no es pública o lleva el hash /#/ del front.
         var permiteAutoReturn = EsUrlPublicaParaMercadoPago(backUrlSuccess)
-            && !backUrlSuccess.Contains('#', StringComparison.Ordinal)
-            && !backUrlSuccess.Contains("/api/mercadopago/retorno", StringComparison.OrdinalIgnoreCase);
+            && !backUrlSuccess.Contains('#', StringComparison.Ordinal);
 
         // OAuth con test_token deja un cobrador de prueba. El Gmail del cliente, mandado
         // como payer, hace que el checkout muestre "Algo salió mal".
         var tokenDePrueba = _opciones.OAuthTestToken
             || accessToken.StartsWith("TEST-", StringComparison.OrdinalIgnoreCase);
 
-        // En prueba, el checkout sandbox rechaza la preferencia si viajan el Gmail,
-        // el webhook o las back_urls (sobre todo si redirigen). Solo van los ítems.
-        var preferenciaRequest = tokenDePrueba
-            ? new PreferenceRequest
-            {
-                Items = items,
-                ExternalReference = pedido.Id,
-            }
-            : new PreferenceRequest
-            {
-                Items = items,
-                ExternalReference = pedido.Id,
-                Payer = new PreferencePayerRequest
+        // En prueba no se manda el Gmail: el checkout lo toma como pagador real.
+        // Sí se mandan la vuelta a la tienda y el aviso, para marcar el pedido como pagado.
+        var preferenciaRequest = new PreferenceRequest
+        {
+            Items = items,
+            ExternalReference = pedido.Id,
+            Payer = tokenDePrueba
+                ? null
+                : new PreferencePayerRequest
                 {
                     Email = pedido.ClienteEmail,
                     Name = pedido.ClienteNombre,
                 },
-                NotificationUrl = $"{baseUrl}/api/webhooks/mercadopago?n={Uri.EscapeDataString(negocio.Id)}",
-                BackUrls = new PreferenceBackUrlsRequest
-                {
-                    Success = backUrlSuccess,
-                    Failure = backUrlFailure,
-                    Pending = backUrlPending,
-                },
-                AutoReturn = permiteAutoReturn ? "approved" : null,
-            };
+            NotificationUrl = $"{baseUrl}/api/webhooks/mercadopago?n={Uri.EscapeDataString(negocio.Id)}",
+            BackUrls = new PreferenceBackUrlsRequest
+            {
+                Success = backUrlSuccess,
+                Failure = backUrlFailure,
+                Pending = backUrlPending,
+            },
+            AutoReturn = permiteAutoReturn ? "approved" : null,
+        };
 
         var requestOptions = new RequestOptions { AccessToken = accessToken };
         var clientePreferencia = new PreferenceClient();
