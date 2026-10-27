@@ -67,7 +67,7 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
             Title = linea.Nombre.Length > 127 ? linea.Nombre[..127] : linea.Nombre,
             Quantity = linea.Cantidad,
             CurrencyId = "ARS",
-            UnitPrice = linea.PrecioUnitario,
+            UnitPrice = decimal.Round(linea.PrecioUnitario, 2, MidpointRounding.AwayFromZero),
         }).ToList();
 
         var appBase = ObtenerUrlBaseFront();
@@ -92,26 +92,32 @@ public sealed class MercadoPagoPreferenciaService : IMercadoPagoPreferenciaServi
         var tokenDePrueba = _opciones.OAuthTestToken
             || accessToken.StartsWith("TEST-", StringComparison.OrdinalIgnoreCase);
 
-        var preferenciaRequest = new PreferenceRequest
-        {
-            Items = items,
-            ExternalReference = pedido.Id,
-            Payer = tokenDePrueba
-                ? null
-                : new PreferencePayerRequest
+        // En prueba, el checkout sandbox rechaza la preferencia si viajan el Gmail,
+        // el webhook o las back_urls (sobre todo si redirigen). Solo van los ítems.
+        var preferenciaRequest = tokenDePrueba
+            ? new PreferenceRequest
+            {
+                Items = items,
+                ExternalReference = pedido.Id,
+            }
+            : new PreferenceRequest
+            {
+                Items = items,
+                ExternalReference = pedido.Id,
+                Payer = new PreferencePayerRequest
                 {
                     Email = pedido.ClienteEmail,
                     Name = pedido.ClienteNombre,
                 },
-            NotificationUrl = $"{baseUrl}/api/webhooks/mercadopago?n={Uri.EscapeDataString(negocio.Id)}",
-            BackUrls = new PreferenceBackUrlsRequest
-            {
-                Success = backUrlSuccess,
-                Failure = backUrlFailure,
-                Pending = backUrlPending,
-            },
-            AutoReturn = permiteAutoReturn ? "approved" : null,
-        };
+                NotificationUrl = $"{baseUrl}/api/webhooks/mercadopago?n={Uri.EscapeDataString(negocio.Id)}",
+                BackUrls = new PreferenceBackUrlsRequest
+                {
+                    Success = backUrlSuccess,
+                    Failure = backUrlFailure,
+                    Pending = backUrlPending,
+                },
+                AutoReturn = permiteAutoReturn ? "approved" : null,
+            };
 
         var requestOptions = new RequestOptions { AccessToken = accessToken };
         var clientePreferencia = new PreferenceClient();
